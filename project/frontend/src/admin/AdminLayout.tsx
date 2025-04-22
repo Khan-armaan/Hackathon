@@ -59,51 +59,7 @@ export default function AdminLayout() {
       label: "Traffic Analytics", 
       icon: <FiBarChart2 size={20} /> 
     },
-    {
-      path: "/admin/stores",
-      label: "Stores",
-      icon: <FiShoppingBag size={20} />,
-    },
-    {
-      path: "/admin/users",
-      label: "Manage Users",
-      icon: <FiUsers size={20} />,
-    },
-    {
-      path: "/admin/inventory",
-      label: "Product Inventory",
-      icon: <FiBox size={20} />,
-    },
-    {
-      path: "/admin/stock-count",
-      label: "Stock Count",
-      icon: <FiClipboard size={20} />,
-    },
-    {
-      path: "/admin/categories",
-      label: "Accounting",
-      icon: <FiGrid size={20} />,
-    },
-    {
-      path: "/admin/branding",
-      label: "Branding",
-      icon: <FiPackage size={20} />,
-    },
-    {
-      path: "/admin/settings",
-      label: "Settings",
-      icon: <FiSettings size={20} />,
-    },
-    {
-      path: "/admin/purchaseview",
-      label: "Purchase View",
-      icon: <FiPackage size={20} />,
-    },
-    {
-      path: "/admin/salesview",
-      label: "Sales View",
-      icon: <FiPackage size={20} />,
-    },
+    
   ];
 
   return (

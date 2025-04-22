@@ -17,15 +17,7 @@ export default function UserLayout() {
   const menuItems = [
     { path: "/user/dashboard", label: "Dashboard", icon: <FiHome size={20} /> },
     { path: "/user/maps", label: "Traffic Maps", icon: <FiMap size={20} /> },
-    {
-      path: "/user/products",
-      label: "Products",
-      icon: <FiShoppingBag size={20} />,
-    },
-    { path: "/user/cart", label: "Cart", icon: <FiShoppingCart size={20} /> },
-    { path: "/user/orders", label: "Orders", icon: <FiPackage size={20} /> },
-    { path: "/user/wishlist", label: "Wishlist", icon: <FiHeart size={20} /> },
-    { path: "/user/profile", label: "Profile", icon: <FiUser size={20} /> },
+   
   ];
 
   return (
