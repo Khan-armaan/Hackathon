@@ -16,7 +16,7 @@ export default function AdminLayout() {
 
     const menuItems = [
         { path: '/admin/dashboard', label: 'Dashboard', icon: <FiHome size={20} /> },
-        { path: '/admin/stores', label: 'Stores', icon: <FiShoppingBag size={20} /> },
+        { path: '/admin/stores' , label: 'Stores', icon: <FiShoppingBag size={20} /> },
         { path: '/admin/users', label: 'Manage Users', icon: <FiUsers size={20} /> },
         { path: '/admin/inventory', label: 'Product Inventory', icon: <FiBox size={20} /> },
         { path: '/admin/stock-count', label: 'Stock Count', icon: <FiClipboard size={20} /> },
