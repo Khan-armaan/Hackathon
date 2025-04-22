@@ -1,6 +1,29 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { adminApi } from "../utils/api";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 interface AdminUser {
   id: number;
@@ -30,12 +53,22 @@ const AdminDashboard = () => {
     eventsToday: 2
   });
   const [isSimulationRunning, setIsSimulationRunning] = useState(false);
+  const [hourlyTraffic, setHourlyTraffic] = useState<number[]>([]);
+  const [areaCongestion, setAreaCongestion] = useState<{ area: string; level: number }[]>([]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("admin_user");
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
+    // Sample data - replace with actual API calls
+    setHourlyTraffic([120, 150, 180, 200, 220, 250, 300, 280, 260, 240, 220, 200]);
+    setAreaCongestion([
+      { area: "Main Road", level: 80 },
+      { area: "Market Area", level: 65 },
+      { area: "Residential Zone", level: 40 },
+      { area: "Industrial Area", level: 55 },
+    ]);
   }, []);
 
   const handleLogout = () => {
@@ -53,12 +86,91 @@ const AdminDashboard = () => {
 
   const getCongestionColor = (level: string): string => {
     switch(level) {
-      case "LOW": return "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-600/20";
-      case "MEDIUM": return "bg-amber-100 text-amber-800 ring-1 ring-amber-600/20";
-      case "HIGH": return "bg-rose-100 text-rose-800 ring-1 ring-rose-600/20";
-      case "CRITICAL": return "bg-red-100 text-red-800 ring-1 ring-red-600/20";
-      default: return "bg-gray-100 text-gray-800 ring-1 ring-gray-600/20";
+      case "LOW": return "bg-emerald-100 text-emerald-800";
+      case "MEDIUM": return "bg-amber-100 text-amber-800";
+      case "HIGH": return "bg-rose-100 text-rose-800";
+      case "CRITICAL": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const hourlyTrafficData = {
+    labels: Array.from({ length: 12 }, (_, i) => `${i + 6}:00`),
+    datasets: [
+      {
+        label: 'Vehicles per hour',
+        data: hourlyTraffic,
+        borderColor: 'rgb(34, 197, 94)',
+        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+        tension: 0.4,
+        fill: true,
+        pointBackgroundColor: 'rgb(34, 197, 94)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      },
+    ],
+  };
+
+  const areaCongestionData = {
+    labels: areaCongestion.map(item => item.area),
+    datasets: [
+      {
+        label: 'Congestion Level (%)',
+        data: areaCongestion.map(item => item.level),
+        backgroundColor: 'rgba(34, 197, 94, 0.2)',
+        borderColor: 'rgb(34, 197, 94)',
+        borderWidth: 2,
+        borderRadius: 4,
+        barPercentage: 0.6,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: {
+          color: '#1f2937',
+          font: {
+            size: 12,
+            weight: 'normal' as const,
+          },
+          padding: 20,
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(34, 197, 94, 0.9)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        padding: 12,
+        cornerRadius: 8,
+        displayColors: false,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)',
+        },
+        ticks: {
+          color: '#6b7280',
+        },
+      },
+      x: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          color: '#6b7280',
+        },
+      },
+    },
   };
 
   return (
@@ -81,7 +193,7 @@ const AdminDashboard = () => {
                   {user?.name.charAt(0).toUpperCase()}
                 </button>
                 {showProfileMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 ring-1 ring-black ring-opacity-5">
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 ring-1 ring-black ring-opacity-5 z-50">
                     <div className="px-4 py-2 border-b border-gray-100">
                       <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                       <p className="text-xs text-gray-500">{user?.email}</p>
@@ -212,6 +324,22 @@ const AdminDashboard = () => {
                   trafficStats.congestionLevel === "HIGH" ? "bg-rose-500 w-3/4" :
                   "bg-red-500 w-full"
                 }`}></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Traffic Graphs */}
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Hourly Traffic Flow</h3>
+              <div className="h-[300px]">
+                <Line data={hourlyTrafficData} options={chartOptions} />
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Area-wise Congestion</h3>
+              <div className="h-[300px]">
+                <Bar data={areaCongestionData} options={chartOptions} />
               </div>
             </div>
           </div>
