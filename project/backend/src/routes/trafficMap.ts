@@ -69,6 +69,16 @@ export const trafficMapRouter = express.Router();
  *         endY:
  *           type: integer
  *           description: Ending Y coordinate of the road
+ *         points:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               x:
+ *                 type: integer
+ *               y:
+ *                 type: integer
+ *           description: Array of points for curved paths. If provided, the road will follow these points.
  *         roadType:
  *           type: string
  *           enum: [HIGHWAY, NORMAL, RESIDENTIAL]
@@ -349,7 +359,7 @@ trafficMapRouter.delete("/:id", async (req, res) => {
 trafficMapRouter.post("/:mapId/traffic-data", async (req, res) => {
   try {
     const { mapId } = req.params;
-    const { startX, startY, endX, endY, roadType, density } = req.body;
+    const { startX, startY, endX, endY, roadType, density, points } = req.body;
 
     // Check if map exists
     const map = await prisma.trafficMap.findUnique({
@@ -366,6 +376,19 @@ trafficMapRouter.post("/:mapId/traffic-data", async (req, res) => {
       return res.status(400).json({ error: "Missing required coordinates" });
     }
 
+    // Validate points array if provided
+    if (points && (!Array.isArray(points) || !points.every(point => 
+      typeof point === 'object' && 
+      'x' in point && 
+      'y' in point && 
+      typeof point.x === 'number' && 
+      typeof point.y === 'number'
+    ))) {
+      return res.status(400).json({ 
+        error: "Invalid points data format. Expected array of {x: number, y: number}" 
+      });
+    }
+
     const newTrafficData = await prisma.trafficData.create({
       data: {
         mapId: parseInt(mapId),
@@ -373,6 +396,7 @@ trafficMapRouter.post("/:mapId/traffic-data", async (req, res) => {
         startY,
         endX,
         endY,
+        points, // Will be stored as JSON
         roadType: roadType || "NORMAL",
         density: density || "LOW",
       },
@@ -426,10 +450,23 @@ trafficMapRouter.post("/:mapId/traffic-data", async (req, res) => {
 trafficMapRouter.put("/:mapId/traffic-data/:dataId", async (req, res) => {
   try {
     const { mapId, dataId } = req.params;
-    const { startX, startY, endX, endY, roadType, density } = req.body;
+    const { startX, startY, endX, endY, roadType, density, points } = req.body;
 
     if (!startX || !startY || !endX || !endY) {
       return res.status(400).json({ error: "Missing required coordinates" });
+    }
+
+    // Validate points array if provided
+    if (points && (!Array.isArray(points) || !points.every(point => 
+      typeof point === 'object' && 
+      'x' in point && 
+      'y' in point && 
+      typeof point.x === 'number' && 
+      typeof point.y === 'number'
+    ))) {
+      return res.status(400).json({ 
+        error: "Invalid points data format. Expected array of {x: number, y: number}" 
+      });
     }
 
     const updatedTrafficData = await prisma.trafficData.update({
@@ -442,6 +479,7 @@ trafficMapRouter.put("/:mapId/traffic-data/:dataId", async (req, res) => {
         startY,
         endX,
         endY,
+        points, // Will be stored as JSON
         roadType,
         density,
       },

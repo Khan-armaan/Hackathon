@@ -42,6 +42,7 @@ model TrafficData {
   startY    Int
   endX      Int
   endY      Int
+  points    Json?      // Array of points for curved paths: [{x: number, y: number}, ...]
   roadType  RoadType   @default(NORMAL)
   density   Density    @default(LOW)
   createdAt DateTime   @default(now())

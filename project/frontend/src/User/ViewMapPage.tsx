@@ -15,6 +15,8 @@ interface Vehicle {
   size: number;
   direction: number;
   roadId: number;
+  pathIndex?: number; // Index in the path array of points
+  isReversed?: boolean; // Whether vehicle is traveling in reverse direction
 }
 
 interface TrafficData {
@@ -23,6 +25,7 @@ interface TrafficData {
   startY: number;
   endX: number;
   endY: number;
+  points?: {x: number, y: number}[]; // Array of intermediate points for curved paths
   roadType: "HIGHWAY" | "NORMAL" | "RESIDENTIAL";
   density: "LOW" | "MEDIUM" | "HIGH" | "CONGESTED";
 }
@@ -141,7 +144,7 @@ const ViewMapPage: React.FC = () => {
     let vehicleId = 1;
 
     trafficData.forEach((road) => {
-      const { startX, startY, endX, endY, roadType, density } = road;
+      const { startX, startY, endX, endY, roadType, density, points } = road;
 
       // Determine number of vehicles based on density
       let vehicleCount = 0;
@@ -183,18 +186,62 @@ const ViewMapPage: React.FC = () => {
           baseSpeed = 1.0;
           vehicleSize = 3;
       }
-
-      // Calculate road direction angle
-      const direction = Math.atan2(endY - startY, endX - startX);
+      
+      // Prepare the complete path array for this road
+      const completePath = [
+        { x: startX, y: startY }, // Start point
+        ...(points || []),       // Intermediate points if exist
+        { x: endX, y: endY }     // End point
+      ];
 
       // Generate vehicles for this road
       for (let i = 0; i < vehicleCount; i++) {
-        // Position along the road (0 to 1)
+        // Position along the path (0 to 1)
         const position = Math.random();
-
-        // Calculate position
-        const x = startX + position * (endX - startX);
-        const y = startY + position * (endY - startY);
+        
+        // Determine path segment and exact position
+        // For a position of 0.6 on a path with 3 segments, we want to be 0.8 of the way through segment 1
+        let pathIndex = 0;
+        let localPosition = 0;
+        
+        if (completePath.length > 1) {
+          // Calculate total path length
+          let totalLength = 0;
+          let segmentLengths = [];
+          
+          for (let j = 0; j < completePath.length - 1; j++) {
+            const length = Math.sqrt(
+              Math.pow(completePath[j+1].x - completePath[j].x, 2) + 
+              Math.pow(completePath[j+1].y - completePath[j].y, 2)
+            );
+            segmentLengths.push(length);
+            totalLength += length;
+          }
+          
+          // Determine which segment we're on
+          const targetDistance = position * totalLength;
+          let distanceSoFar = 0;
+          
+          for (let j = 0; j < segmentLengths.length; j++) {
+            if (targetDistance <= distanceSoFar + segmentLengths[j]) {
+              // Found our segment
+              pathIndex = j;
+              localPosition = (targetDistance - distanceSoFar) / segmentLengths[j];
+              break;
+            }
+            distanceSoFar += segmentLengths[j];
+          }
+        }
+        
+        // Calculate x, y based on path index and local position
+        const current = completePath[pathIndex];
+        const next = completePath[pathIndex + 1];
+        
+        const x = current.x + localPosition * (next.x - current.x);
+        const y = current.y + localPosition * (next.y - current.y);
+        
+        // Calculate direction angle for this segment
+        const direction = Math.atan2(next.y - current.y, next.x - current.x);
 
         // Vehicle color based on road type
         let color = "";
@@ -215,17 +262,29 @@ const ViewMapPage: React.FC = () => {
         // Add some speed variation between vehicles
         const speedVariation = 0.8 + Math.random() * 0.4; // 0.8 to 1.2
 
+        // Randomly decide if vehicle is traveling forward or reverse
+        const isReversed = Math.random() > 0.5;
+
+        // Set target as next or previous point based on direction
+        const targetPointIndex = isReversed ? 
+          (pathIndex === 0 ? 0 : pathIndex - 1) : 
+          (pathIndex === completePath.length - 2 ? completePath.length - 1 : pathIndex + 2);
+        
+        const targetPoint = completePath[Math.min(Math.max(0, targetPointIndex), completePath.length - 1)];
+
         newVehicles.push({
           id: vehicleId++,
           x,
           y,
-          targetX: endX,
-          targetY: endY,
+          targetX: targetPoint.x,
+          targetY: targetPoint.y,
           speed: baseSpeed * speedVariation,
           color,
           size: vehicleSize,
           direction,
           roadId: road.id,
+          pathIndex,
+          isReversed
         });
       }
     });
@@ -368,15 +427,28 @@ const ViewMapPage: React.FC = () => {
 
     // Draw roads
     map.trafficData.forEach((road) => {
-      const { startX, startY, endX, endY, roadType, density } = road;
+      const { startX, startY, endX, endY, roadType, density, points } = road;
 
       // Set line style based on road type and density
       ctx.lineWidth = getRoadWidth(roadType);
       ctx.strokeStyle = getRoadColor(density);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
 
       // Draw the road
       ctx.beginPath();
+      
+      // Start path
       ctx.moveTo(startX, startY);
+      
+      if (points && points.length > 0) {
+        // Draw through all intermediate points
+        points.forEach(point => {
+          ctx.lineTo(point.x, point.y);
+        });
+      }
+      
+      // Draw to end point
       ctx.lineTo(endX, endY);
       ctx.stroke();
     });
@@ -420,6 +492,17 @@ const ViewMapPage: React.FC = () => {
         const road = map.trafficData.find((r) => r.id === vehicle.roadId);
         if (!road) return null;
         
+        // Prepare the complete path array for this road
+        const completePath = [
+          { x: road.startX, y: road.startY }, // Start point
+          ...(road.points || []),            // Intermediate points if exist
+          { x: road.endX, y: road.endY }     // End point
+        ];
+        
+        // Make sure pathIndex is valid
+        let pathIndex = vehicle.pathIndex || 0;
+        const isReversed = vehicle.isReversed || false;
+        
         // Adjust speed based on density and add some randomness
         let speedModifier = 1;
         switch (road.density) {
@@ -440,9 +523,47 @@ const ViewMapPage: React.FC = () => {
         // Check for vehicles ahead to simulate car following behavior
         const roadVehicles = vehiclesByRoad[vehicle.roadId] || [];
         
+        // Get current target point based on path index and direction
+        let currentPoint = completePath[pathIndex];
+        let targetPoint = completePath[isReversed ? pathIndex - 1 : pathIndex + 1];
+        
+        // If we're at the end of the path, reverse direction
+        if (targetPoint === undefined) {
+          if (isReversed) {
+            // If we're already going in reverse and hit the start, switch to forward
+            targetPoint = completePath[1];
+            pathIndex = 0;
+            return {
+              ...vehicle,
+              x: completePath[0].x,
+              y: completePath[0].y,
+              targetX: targetPoint.x,
+              targetY: targetPoint.y,
+              pathIndex,
+              isReversed: false,
+              direction: Math.atan2(targetPoint.y - currentPoint.y, targetPoint.x - currentPoint.x)
+            };
+          } else {
+            // Going forward and hit the end, switch to reverse
+            const lastIndex = completePath.length - 1;
+            targetPoint = completePath[lastIndex - 1];
+            pathIndex = lastIndex;
+            return {
+              ...vehicle,
+              x: completePath[lastIndex].x,
+              y: completePath[lastIndex].y,
+              targetX: targetPoint.x,
+              targetY: targetPoint.y,
+              pathIndex,
+              isReversed: true,
+              direction: Math.atan2(targetPoint.y - currentPoint.y, targetPoint.x - currentPoint.x)
+            };
+          }
+        }
+        
         // Calculate distance to target
-        const dx = vehicle.targetX - vehicle.x;
-        const dy = vehicle.targetY - vehicle.y;
+        const dx = targetPoint.x - vehicle.x;
+        const dy = targetPoint.y - vehicle.y;
         const distanceToTarget = Math.sqrt(dx * dx + dy * dy);
         
         // Calculate direction vector
@@ -473,32 +594,48 @@ const ViewMapPage: React.FC = () => {
 
         // If the vehicle has reached its target
         if (distanceToTarget < vehicle.speed * simulationSpeed) {
-          // Switch direction - go back to start point or end point
-          if (vehicle.targetX === road.endX && vehicle.targetY === road.endY) {
+          // Move to next path segment
+          const newPathIndex = isReversed ? pathIndex - 1 : pathIndex + 1;
+          
+          // Check if we need to reverse direction
+          if (newPathIndex < 0 || newPathIndex >= completePath.length - 1) {
+            const atEnd = newPathIndex >= completePath.length - 1;
+            const newReversed = !isReversed;
+            const newIndex = atEnd ? completePath.length - 1 : 0;
+            const nextTargetIndex = newReversed ? newIndex - 1 : newIndex + 1;
+            const nextTargetPoint = completePath[nextTargetIndex];
+            
             return {
               ...vehicle,
-              x: road.endX,
-              y: road.endY,
-              targetX: road.startX,
-              targetY: road.startY,
+              x: completePath[newIndex].x,
+              y: completePath[newIndex].y,
+              targetX: nextTargetPoint.x,
+              targetY: nextTargetPoint.y,
+              pathIndex: newIndex,
+              isReversed: newReversed,
               direction: Math.atan2(
-                road.startY - road.endY,
-                road.startX - road.endX
-              ),
-            };
-          } else {
-            return {
-              ...vehicle,
-              x: road.startX,
-              y: road.startY,
-              targetX: road.endX,
-              targetY: road.endY,
-              direction: Math.atan2(
-                road.endY - road.startY,
-                road.endX - road.startX
-              ),
+                nextTargetPoint.y - completePath[newIndex].y,
+                nextTargetPoint.x - completePath[newIndex].x
+              )
             };
           }
+          
+          // Move to next segment
+          const nextTargetIndex = isReversed ? newPathIndex - 1 : newPathIndex + 1;
+          const nextTargetPoint = completePath[Math.min(Math.max(0, nextTargetIndex), completePath.length - 1)];
+          
+          return {
+            ...vehicle,
+            x: targetPoint.x,
+            y: targetPoint.y,
+            targetX: nextTargetPoint.x,
+            targetY: nextTargetPoint.y,
+            pathIndex: newPathIndex,
+            direction: Math.atan2(
+              nextTargetPoint.y - targetPoint.y,
+              nextTargetPoint.x - targetPoint.x
+            )
+          };
         }
 
         // Apply all the modifiers to get the final speed
@@ -512,6 +649,7 @@ const ViewMapPage: React.FC = () => {
           ...vehicle,
           x: newX,
           y: newY,
+          direction: Math.atan2(dirY, dirX)
         };
       })
       .filter(Boolean) as Vehicle[];
@@ -725,27 +863,52 @@ const ViewMapPage: React.FC = () => {
     const firstRoad = path.roadPath[0];
     ctx.moveTo(firstRoad.startX, firstRoad.startY);
     
-    // Connect all road segments
-    path.roadPath.forEach(road => {
+    // For each road segment in the path
+    for (let i = 0; i < path.roadPath.length; i++) {
+      const road = path.roadPath[i];
+      
+      // If the road has intermediate points, draw through those
+      if (road.points && road.points.length > 0) {
+        road.points.forEach(point => {
+          ctx.lineTo(point.x, point.y);
+        });
+      }
+      
+      // Draw to the end point of this road
       ctx.lineTo(road.endX, road.endY);
-    });
+    }
     
     ctx.stroke();
     
     // Add arrow heads to show direction
     for (let i = 0; i < path.roadPath.length; i += Math.max(1, Math.floor(path.roadPath.length / 5))) {
       const road = path.roadPath[i];
-      const dx = road.endX - road.startX;
-      const dy = road.endY - road.startY;
-      const angle = Math.atan2(dy, dx);
       
-      const mid = {
-        x: road.startX + dx * 0.6,
-        y: road.startY + dy * 0.6
-      };
+      // Find the midpoint to place the arrow
+      let midX, midY, angle;
+      
+      if (road.points && road.points.length > 0) {
+        // For curved roads, use the middle point
+        const midPointIndex = Math.floor(road.points.length / 2);
+        const midPoint = road.points[midPointIndex];
+        const nextPointIndex = Math.min(midPointIndex + 1, road.points.length - 1);
+        const nextPoint = road.points[nextPointIndex];
+        
+        midX = midPoint.x;
+        midY = midPoint.y;
+        angle = Math.atan2(nextPoint.y - midPoint.y, nextPoint.x - midPoint.x);
+      } else {
+        // For straight roads, use midpoint of the line
+        const dx = road.endX - road.startX;
+        const dy = road.endY - road.startY;
+        angle = Math.atan2(dy, dx);
+        
+        midX = road.startX + dx * 0.6;
+        midY = road.startY + dy * 0.6;
+      }
       
       // Draw arrow
-      drawArrow(ctx, mid.x, mid.y, angle, color);
+      drawArrow(ctx, midX, midY, angle, color);
     }
     
     ctx.restore();
