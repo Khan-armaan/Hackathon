@@ -12,6 +12,10 @@ import {
   FiBox,
   FiClipboard,
   FiMap,
+  FiCalendar,
+  FiTrendingUp,
+  FiClock,
+  FiBarChart2
 } from "react-icons/fi";
 
 export default function AdminLayout() {
@@ -30,7 +34,31 @@ export default function AdminLayout() {
       label: "Dashboard",
       icon: <FiHome size={20} />,
     },
-    { path: "/admin/maps", label: "Traffic Maps", icon: <FiMap size={20} /> },
+    { 
+      path: "/admin/maps", 
+      label: "Traffic Maps", 
+      icon: <FiMap size={20} /> 
+    },
+    { 
+      path: "/admin/events", 
+      label: "Event Management", 
+      icon: <FiCalendar size={20} /> 
+    },
+    { 
+      path: "/admin/simulation", 
+      label: "Traffic Simulation", 
+      icon: <FiTrendingUp size={20} /> 
+    },
+    { 
+      path: "/admin/routes", 
+      label: "Route Scheduling", 
+      icon: <FiClock size={20} /> 
+    },
+    { 
+      path: "/admin/analytics", 
+      label: "Traffic Analytics", 
+      icon: <FiBarChart2 size={20} /> 
+    },
     {
       path: "/admin/stores",
       label: "Stores",
@@ -94,9 +122,9 @@ export default function AdminLayout() {
           style={{ backgroundColor: Colors.primaryGreen }}
         >
           {isHovered ? (
-            <span className="text-xl font-bold text-white">Admin Panel</span>
+            <span className="text-xl font-bold text-white">Kachi Dham TMS</span>
           ) : (
-            <span className="text-xl text-white">A</span>
+            <span className="text-xl text-white">K</span>
           )}
         </div>
 

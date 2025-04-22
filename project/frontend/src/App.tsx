@@ -14,6 +14,10 @@ import AddMapPage from "./admin/AddMapPage";
 import MapManagementPage from "./admin/MapManagementPage";
 import MapSelectionPage from "./User/MapSelectionPage";
 import ViewMapPage from "./User/ViewMapPage";
+import EventManagementPage from "./admin/EventManagementPage";
+import SimulationPage from "./admin/SimulationPage";
+import RouteSchedulingPage from "./admin/RouteSchedulingPage";
+import TrafficAnalyticsPage from "./admin/TrafficAnalyticsPage";
 
 import { adminApi } from "./utils/api";
 
@@ -48,7 +52,14 @@ function App() {
           <Route path="maps" element={<MapManagementPage />} />
           <Route path="maps/add" element={<AddMapPage />} />
           <Route path="maps/edit/:id" element={<AddMapPage />} />
-          {/* Add other admin routes here */}
+          
+          {/* New Traffic Management Routes */}
+          <Route path="events" element={<EventManagementPage />} />
+          <Route path="simulation" element={<SimulationPage />} />
+          <Route path="routes" element={<RouteSchedulingPage />} />
+          <Route path="analytics" element={<TrafficAnalyticsPage />} />
+          
+          {/* Existing admin routes */}
           <Route path="stores" element={<div>Stores Management</div>} />
           <Route path="users" element={<div>User Management</div>} />
           <Route path="inventory" element={<div>Product Inventory</div>} />
