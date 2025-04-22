@@ -7,8 +7,6 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
 const swagger_1 = require("./config/swagger");
-const prisma_1 = require("./generated/prisma");
-const prisma = new prisma_1.PrismaClient();
 const app = (0, express_1.default)();
 // Get the client origin from environment variables
 const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";

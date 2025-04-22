@@ -121,7 +121,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "/Users/armaankhan/Desktop/Hackathon/project/backend/src/generated/prisma",
+      "value": "C:\\Program Files (x86)\\Desktop\\FOlder\\Hackathon\\project\\backend\\src\\generated\\prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -130,12 +130,12 @@ const config = {
     "binaryTargets": [
       {
         "fromEnvVar": null,
-        "value": "darwin-arm64",
+        "value": "windows",
         "native": true
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/armaankhan/Desktop/Hackathon/project/backend/prisma/schema.prisma",
+    "sourceFilePath": "C:\\Program Files (x86)\\Desktop\\FOlder\\Hackathon\\project\\backend\\prisma\\schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {

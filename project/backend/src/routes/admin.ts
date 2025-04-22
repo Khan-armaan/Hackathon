@@ -2,7 +2,7 @@ import express from "express";
 
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "../generated/prisma";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10; // Number of salt rounds for bcrypt

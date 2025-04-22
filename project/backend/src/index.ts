@@ -5,9 +5,8 @@ import swaggerUi from "swagger-ui-express";
 import { specs } from "./config/swagger";
 
 import { uploadRouter } from "./routes/upload";
-import { PrismaClient } from "./generated/prisma";
+import prisma from "./lib/prisma";
 
-const prisma = new PrismaClient();
 const app = express();
 
 // Get the client origin from environment variables
