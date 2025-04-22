@@ -75,3 +75,58 @@ export const adminApi = {
     localStorage.removeItem("admin_user");
   },
 };
+
+// Events API
+export const eventsApi = {
+  // Get all events
+  getEvents: async () => {
+    return apiCall<any[]>("/api/events", "GET");
+  },
+
+  // Get a specific event
+  getEvent: async (id: number) => {
+    return apiCall<any>(`/api/events/${id}`, "GET");
+  },
+
+  // Create a new event
+  createEvent: async (eventData: any) => {
+    return apiCall<any>("/api/events", "POST", eventData, true);
+  },
+
+  // Update an event
+  updateEvent: async (id: number, eventData: any) => {
+    return apiCall<any>(`/api/events/${id}`, "PUT", eventData, true);
+  },
+
+  // Delete an event
+  deleteEvent: async (id: number) => {
+    return apiCall<any>(`/api/events/${id}`, "DELETE", null, true);
+  },
+};
+
+// Traffic API
+export const trafficApi = {
+  // Get traffic stats
+  getTrafficStats: async (mapId?: number) => {
+    const endpoint = mapId ? `/api/traffic-stats/${mapId}` : "/api/traffic-stats";
+    return apiCall<any>(endpoint, "GET");
+  },
+
+  // Get daily traffic data
+  getDailyTrafficData: async (days?: number) => {
+    const query = days ? `?days=${days}` : "";
+    return apiCall<any[]>(`/api/traffic-analytics/daily${query}`, "GET");
+  },
+
+  // Get traffic snapshots
+  getTrafficSnapshots: async (date?: string, limit?: number) => {
+    let query = "";
+    if (date || limit) {
+      const params = [];
+      if (date) params.push(`date=${date}`);
+      if (limit) params.push(`limit=${limit}`);
+      query = `?${params.join("&")}`;
+    }
+    return apiCall<any[]>(`/api/traffic-analytics/snapshots${query}`, "GET");
+  },
+};
