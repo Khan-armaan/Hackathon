@@ -10,6 +10,10 @@ import AdminDashboard from "./admin/AdminDashboard";
 import AdminLayout from "./admin/AdminLayout";
 import UserDashboard from "./User/UserDashboard";
 import UserLayout from "./User/UserLayout";
+import AddMapPage from "./admin/AddMapPage";
+import MapManagementPage from "./admin/MapManagementPage";
+import MapSelectionPage from "./User/MapSelectionPage";
+import ViewMapPage from "./User/ViewMapPage";
 
 import { adminApi } from "./utils/api";
 
@@ -41,6 +45,9 @@ function App() {
           }
         >
           <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="maps" element={<MapManagementPage />} />
+          <Route path="maps/add" element={<AddMapPage />} />
+          <Route path="maps/edit/:id" element={<AddMapPage />} />
           {/* Add other admin routes here */}
           <Route path="stores" element={<div>Stores Management</div>} />
           <Route path="users" element={<div>User Management</div>} />
@@ -56,6 +63,8 @@ function App() {
         {/* User Routes */}
         <Route path="/user" element={<UserLayout />}>
           <Route path="dashboard" element={<UserDashboard />} />
+          <Route path="maps" element={<MapSelectionPage />} />
+          <Route path="maps/:id" element={<ViewMapPage />} />
           <Route path="products" element={<div>Products Page</div>} />
           <Route path="cart" element={<div>Shopping Cart</div>} />
           <Route path="orders" element={<div>Order History</div>} />
@@ -64,7 +73,7 @@ function App() {
         </Route>
 
         {/* Default route */}
-        <Route path="/" element={<Navigate to="/user/dashboard" replace />} />
+        <Route path="/" element={<Navigate to="/user/maps" replace />} />
       </Routes>
     </Router>
   );

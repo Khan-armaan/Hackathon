@@ -8,6 +8,7 @@ import {
   FiUser,
   FiHeart,
   FiPackage,
+  FiMap,
 } from "react-icons/fi";
 
 export default function UserLayout() {
@@ -15,6 +16,7 @@ export default function UserLayout() {
 
   const menuItems = [
     { path: "/user/dashboard", label: "Dashboard", icon: <FiHome size={20} /> },
+    { path: "/user/maps", label: "Traffic Maps", icon: <FiMap size={20} /> },
     {
       path: "/user/products",
       label: "Products",
@@ -49,14 +51,16 @@ export default function UserLayout() {
                   key={item.path}
                   to={item.path}
                   className={`flex items-center px-3 py-2 rounded-md transition-all duration-200 ${
-                    location.pathname === item.path
+                    location.pathname.startsWith(item.path)
                       ? "bg-[#E8F5E9] text-[#2E7D32] font-medium"
                       : "text-gray-600 hover:bg-gray-100 hover:text-[#4CAF50]"
                   }`}
                 >
                   <span
                     className={`mr-2 ${
-                      location.pathname === item.path ? "text-[#4CAF50]" : ""
+                      location.pathname.startsWith(item.path)
+                        ? "text-[#4CAF50]"
+                        : ""
                     }`}
                   >
                     {item.icon}
