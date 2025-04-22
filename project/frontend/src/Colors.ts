@@ -11,4 +11,4 @@ export const Colors = {
     purple: "#800080",
     orange: "#FFA500",
   };
-  
+   

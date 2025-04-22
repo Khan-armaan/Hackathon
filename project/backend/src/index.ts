@@ -1,16 +1,13 @@
-
 import express from "express";
 import cors from "cors";
 
 import swaggerUi from "swagger-ui-express";
 import { specs } from "./config/swagger";
 
-import { uploadRouter } from "./routes/upload";``
-import { PrismaClient } from "./generated/prisma"
+import { uploadRouter } from "./routes/upload";
+import prisma from "./lib/prisma";
 
-const prisma = new PrismaClient();
 const app = express();
-
 
 // Get the client origin from environment variables
 const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
@@ -28,7 +25,6 @@ app.use(express.json());
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
-
 
 // Serve Swagger documentation
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
