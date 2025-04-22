@@ -5,7 +5,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import "./App.css";
-import AdminSignInPage from "./admin/AdminSignInPage";
+import AdminSignInPage from "./admin/Adminsigninpage";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminLayout from "./admin/AdminLayout";
 import UserDashboard from "./User/UserDashboard";

@@ -18,7 +18,8 @@ const trafficAnalytics_1 = __importDefault(require("./routes/trafficAnalytics"))
 const routeOptimization_1 = __importDefault(require("./routes/routeOptimization"));
 const app = (0, express_1.default)();
 // Get the client origin from environment variables
-const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+//const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const clientOrigin = process.env.CLIENT_ORIGIN || "https://traffic.mybyte.store";
 // Configure CORS with environment variables
 app.use((0, cors_1.default)({
     origin: clientOrigin, // Use environment variable with fallback
@@ -41,7 +42,8 @@ app.use("/api/route-optimization", routeOptimization_1.default);
 // Serve Swagger documentation
 app.use("/api-docs", swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swagger_1.specs));
 // Use PORT from environment variables
-const PORT = process.env.PORT || 3000;
+//const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

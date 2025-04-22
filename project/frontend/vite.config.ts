@@ -7,18 +7,18 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     host: "0.0.0.0", // Allow external connections
-    port: 5176, // Ensure this matches your reverse proxy target
+    port: 5176,       // This should match what Nginx is pointing to
     strictPort: true,
     cors: true,
-    allowedHosts: ["hackathon", "localhost"], // Explicitly allow the domain
+    allowedHosts: ["localhost", "traffic.mybyte.store"],
     hmr: {
-      clientPort: 443, // Ensures hot module reload (HMR) works with HTTPS
+      clientPort: 443, // for hot reload via HTTPS
     },
   },
   preview: {
     host: "0.0.0.0",
     port: 5176,
-    allowedHosts: ["hackathon", "localhost"],
+    allowedHosts: ["localhost", "traffic.mybyte.store"],
   },
   base: "/",
   build: {
@@ -33,3 +33,4 @@ export default defineConfig({
     },
   },
 });
+
