@@ -130,3 +130,86 @@ export const trafficApi = {
     return apiCall<any[]>(`/api/traffic-analytics/snapshots${query}`, "GET");
   },
 };
+
+// Route Scheduling API
+export const routeApi = {
+  // Get all route recommendations
+  getRoutes: async () => {
+    return apiCall<any[]>("/api/route-scheduling/routes", "GET");
+  },
+
+  // Get a specific route recommendation
+  getRoute: async (id: number) => {
+    return apiCall<any>(`/api/route-scheduling/routes/${id}`, "GET");
+  },
+
+  // Create a new route recommendation
+  createRoute: async (routeData: {
+    entryPoint: string;
+    exitPoint: string;
+    route: string[];
+    expectedDuration: number;
+    congestionLevel?: "LOW" | "MEDIUM" | "HIGH";
+    vehicleTypes?: string[];
+    timeSlotIds: number[];
+  }) => {
+    return apiCall<any>("/api/route-scheduling/routes", "POST", routeData, true);
+  },
+
+  // Update a route recommendation
+  updateRoute: async (id: number, routeData: {
+    entryPoint?: string;
+    exitPoint?: string;
+    route?: string[];
+    expectedDuration?: number;
+    congestionLevel?: "LOW" | "MEDIUM" | "HIGH";
+    vehicleTypes?: string[];
+    timeSlotIds?: number[];
+  }) => {
+    return apiCall<any>(`/api/route-scheduling/routes/${id}`, "PUT", routeData, true);
+  },
+
+  // Delete a route recommendation
+  deleteRoute: async (id: number) => {
+    return apiCall<any>(`/api/route-scheduling/routes/${id}`, "DELETE", null, true);
+  },
+
+  // Get all time slots
+  getTimeSlots: async () => {
+    return apiCall<any[]>("/api/route-scheduling/time-slots", "GET");
+  },
+
+  // Get a specific time slot
+  getTimeSlot: async (id: number) => {
+    return apiCall<any>(`/api/route-scheduling/time-slots/${id}`, "GET");
+  },
+
+  // Create a new time slot
+  createTimeSlot: async (timeSlotData: {
+    startTime: string;
+    endTime: string;
+    maxVehicles: number;
+    currentAllocation?: number;
+    status?: "OPEN" | "FILLING" | "FULL" | "CLOSED";
+    entryPoint: string;
+  }) => {
+    return apiCall<any>("/api/route-scheduling/time-slots", "POST", timeSlotData, true);
+  },
+
+  // Update a time slot
+  updateTimeSlot: async (id: number, timeSlotData: {
+    startTime?: string;
+    endTime?: string;
+    maxVehicles?: number;
+    currentAllocation?: number;
+    status?: "OPEN" | "FILLING" | "FULL" | "CLOSED";
+    entryPoint?: string;
+  }) => {
+    return apiCall<any>(`/api/route-scheduling/time-slots/${id}`, "PUT", timeSlotData, true);
+  },
+
+  // Delete a time slot
+  deleteTimeSlot: async (id: number) => {
+    return apiCall<any>(`/api/route-scheduling/time-slots/${id}`, "DELETE", null, true);
+  },
+};

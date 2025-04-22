@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { eventsApi } from "../utils/api";
+
+import { eventsApi, trafficApi, routeApi } from "../utils/api";
 
 interface Event {
   id: number;
@@ -12,6 +12,56 @@ interface Event {
   expectedVisitors: number;
   location: string;
   status: "UPCOMING" | "ONGOING" | "COMPLETED" | "CANCELLED";
+}
+
+// New interface for vehicle statistics
+interface VehicleStats {
+  totalEstimatedVehicles: number;
+  totalVehicleCapacity: number;
+  capacityUsagePercentage: number;
+  upcomingEvents: number;
+  ongoingEvents: number;
+}
+
+// New interfaces for route management
+interface TimeSlot {
+  id: number;
+  startTime: string;
+  endTime: string;
+  maxVehicles: number;
+  currentAllocation: number;
+  status: "OPEN" | "FILLING" | "FULL" | "CLOSED";
+  entryPoint: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface RouteRecommendation {
+  id: number;
+  entryPoint: string;
+  exitPoint: string;
+  route: string[];
+  expectedDuration: number;
+  congestionLevel: "LOW" | "MEDIUM" | "HIGH";
+  vehicleTypes: string[];
+  timeSlotIds: number[];
+  timeSlots: TimeSlot[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface TrafficDiversion {
+  entryPoint: string;
+  exitPoint: string;
+  route: string[];
+  alternativeRoutes: { route: string[], reason: string }[];
+  congestionStatus: "LOW" | "MEDIUM" | "HIGH";
+  diversionReason: string;
+  affectedEvents: Event[];
+  suggestedAction: string;
+  vehiclesAffected: number;
+  timeSlots: TimeSlot[];
+  isActive: boolean;
 }
 
 const EventManagementPage: React.FC = () => {
@@ -35,10 +85,48 @@ const EventManagementPage: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<string>("date");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  // New state for vehicle statistics
+  const [vehicleStats, setVehicleStats] = useState<VehicleStats>({
+    totalEstimatedVehicles: 0,
+    totalVehicleCapacity: 10000, // Default total capacity, can be adjusted
+    capacityUsagePercentage: 0,
+    upcomingEvents: 0,
+    ongoingEvents: 0
+  });
+  
+  // New states for route management
+  const [routes, setRoutes] = useState<RouteRecommendation[]>([]);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [trafficDiversions, setTrafficDiversions] = useState<TrafficDiversion[]>([]);
+  const [isRouteDiversionModalOpen, setIsRouteDiversionModalOpen] = useState(false);
+  const [selectedDiversion, setSelectedDiversion] = useState<TrafficDiversion | null>(null);
+  const [trafficStats, setTrafficStats] = useState<any>(null);
+  const [trafficSnapshots, setTrafficSnapshots] = useState<any[]>([]);
+  const [isCreatingTimeSlot, setIsCreatingTimeSlot] = useState(false);
+  const [newTimeSlot, setNewTimeSlot] = useState({
+    startTime: new Date().toISOString().slice(0, 16),
+    endTime: new Date(Date.now() + 3600000).toISOString().slice(0, 16),
+    maxVehicles: 500,
+    entryPoint: "North Gate"
+  });
 
   useEffect(() => {
     fetchEvents();
+    fetchRoutes();
+    fetchTimeSlots();
+    fetchTrafficStats();
+    fetchTrafficSnapshots();
   }, []);
+
+  // Calculate vehicle statistics whenever events change
+  useEffect(() => {
+    calculateVehicleStats();
+  }, [events]);
+
+  // Generate traffic diversions whenever routes, events, or traffic stats change
+  useEffect(() => {
+    generateTrafficDiversions();
+  }, [routes, events, trafficStats, timeSlots]);
 
   // Fetch events from API
   const fetchEvents = async () => {
@@ -57,6 +145,298 @@ const EventManagementPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Fetch routes from API
+  const fetchRoutes = async () => {
+    try {
+      const response = await routeApi.getRoutes();
+      if (response.error) {
+        console.error("Error fetching routes:", response.error);
+      } else if (response.data) {
+        setRoutes(response.data);
+      }
+    } catch (err) {
+      console.error("Error fetching routes:", err);
+    }
+  };
+
+  // Fetch time slots from API
+  const fetchTimeSlots = async () => {
+    try {
+      const response = await routeApi.getTimeSlots();
+      if (response.error) {
+        console.error("Error fetching time slots:", response.error);
+      } else if (response.data) {
+        setTimeSlots(response.data);
+      }
+    } catch (err) {
+      console.error("Error fetching time slots:", err);
+    }
+  };
+
+  // Fetch traffic stats from API
+  const fetchTrafficStats = async () => {
+    try {
+      const response = await trafficApi.getTrafficStats();
+      if (response.error) {
+        console.error("Error fetching traffic stats:", response.error);
+      } else if (response.data) {
+        setTrafficStats(response.data);
+      }
+    } catch (err) {
+      console.error("Error fetching traffic stats:", err);
+    }
+  };
+
+  // Fetch traffic snapshots from API
+  const fetchTrafficSnapshots = async () => {
+    try {
+      const response = await trafficApi.getTrafficSnapshots();
+      if (response.error) {
+        console.error("Error fetching traffic snapshots:", response.error);
+      } else if (response.data) {
+        setTrafficSnapshots(response.data);
+      }
+    } catch (err) {
+      console.error("Error fetching traffic snapshots:", err);
+    }
+  };
+
+  // Generate traffic diversions based on events, routes, and traffic stats
+  const generateTrafficDiversions = () => {
+    if (!events.length || !trafficStats) return;
+
+    // Get active events (upcoming or ongoing)
+    const activeEvents = events.filter(event => 
+      event.status === "UPCOMING" || event.status === "ONGOING"
+    );
+
+    if (!activeEvents.length) return;
+
+    // Generate diversions for each entry point based on congestion level
+    const entryPoints = ["North Gate", "East Gate", "South Gate", "West Gate"];
+    const exitPoints = ["Kachi Dham Main Area", "Exhibition Center", "Parking Area", "Food Court"];
+    
+    // Create a mapping of active events by location
+    const eventsByLocation = activeEvents.reduce((acc, event) => {
+      if (!acc[event.location]) {
+        acc[event.location] = [];
+      }
+      acc[event.location].push(event);
+      return acc;
+    }, {} as Record<string, Event[]>);
+
+    // Calculate visitors by entry point
+    const visitorsByEntryPoint: Record<string, number> = {};
+    
+    // Assume even distribution across entry points initially
+    const totalVisitors = activeEvents.reduce((sum, event) => sum + event.expectedVisitors, 0);
+    entryPoints.forEach(entryPoint => {
+      visitorsByEntryPoint[entryPoint] = Math.ceil(totalVisitors / entryPoints.length);
+    });
+
+    // Create diversions for each entry point
+    const newDiversions: TrafficDiversion[] = [];
+    
+    entryPoints.forEach(entryPoint => {
+      exitPoints.forEach(exitPoint => {
+        // Only create diversions for locations with active events
+        if (eventsByLocation[exitPoint]) {
+          // Check if we already have routes for this pair
+          const existingRoutes = routes.filter(r => 
+            r.entryPoint === entryPoint && r.exitPoint === exitPoint
+          );
+
+          // Calculate congestion status based on visitors and capacity
+          const vehiclesAffected = Math.ceil(visitorsByEntryPoint[entryPoint] / 4); // Assume 4 people per vehicle on average
+          let congestionStatus: "LOW" | "MEDIUM" | "HIGH" = "LOW";
+          
+          if (vehiclesAffected > 5000) {
+            congestionStatus = "HIGH";
+          } else if (vehiclesAffected > 2000) {
+            congestionStatus = "MEDIUM";
+          }
+
+          // Get relevant time slots for this entry point
+          const relevantTimeSlots = timeSlots.filter(ts => ts.entryPoint === entryPoint);
+
+          // Create main route and alternatives
+          const mainRoute = [`From ${entryPoint}`, `Via Main Road`, `To ${exitPoint}`];
+          const alternativeRoutes = [
+            { 
+              route: [`From ${entryPoint}`, `Via Secondary Road`, `To ${exitPoint}`], 
+              reason: "Less congested"
+            },
+            { 
+              route: [`From ${entryPoint}`, `Via Bypass Road`, `To ${exitPoint}`], 
+              reason: "Longer but faster during peak hours"
+            }
+          ];
+
+          // Generate a diversion only if congestion is medium or high
+          if (congestionStatus !== "LOW") {
+            newDiversions.push({
+              entryPoint,
+              exitPoint,
+              route: mainRoute,
+              alternativeRoutes,
+              congestionStatus,
+              diversionReason: `High traffic volume due to ${eventsByLocation[exitPoint].map(e => e.name).join(", ")}`,
+              affectedEvents: eventsByLocation[exitPoint],
+              suggestedAction: congestionStatus === "HIGH" 
+                ? "Divert traffic to alternative routes immediately" 
+                : "Monitor traffic and prepare for diversion if needed",
+              vehiclesAffected,
+              timeSlots: relevantTimeSlots,
+              isActive: congestionStatus === "HIGH"
+            });
+          }
+        }
+      });
+    });
+
+    setTrafficDiversions(newDiversions);
+  };
+
+  // Create a new time slot
+  const handleCreateTimeSlot = async () => {
+    try {
+      const response = await routeApi.createTimeSlot({
+        startTime: newTimeSlot.startTime,
+        endTime: newTimeSlot.endTime,
+        maxVehicles: newTimeSlot.maxVehicles,
+        entryPoint: newTimeSlot.entryPoint
+      });
+
+      if (response.error) {
+        setError(response.error);
+      } else {
+        fetchTimeSlots();
+        setIsCreatingTimeSlot(false);
+        setNewTimeSlot({
+          startTime: new Date().toISOString().slice(0, 16),
+          endTime: new Date(Date.now() + 3600000).toISOString().slice(0, 16),
+          maxVehicles: 500,
+          entryPoint: "North Gate"
+        });
+      }
+    } catch (err) {
+      console.error("Error creating time slot:", err);
+      setError("Failed to create time slot");
+    }
+  };
+
+  // Activate or deactivate a traffic diversion
+  const toggleDiversionStatus = async (diversion: TrafficDiversion) => {
+    // First, update local state
+    const updatedDiversions = trafficDiversions.map(d => {
+      if (d.entryPoint === diversion.entryPoint && d.exitPoint === diversion.exitPoint) {
+        return { ...d, isActive: !d.isActive };
+      }
+      return d;
+    });
+    setTrafficDiversions(updatedDiversions);
+
+    try {
+      // If activating a diversion, create or update route recommendations
+      if (!diversion.isActive) {
+        // Check if we have time slots for this entry point
+        if (diversion.timeSlots.length === 0) {
+          // Create a default time slot if none exists
+          const now = new Date();
+          const endTime = new Date(now.getTime() + 4 * 60 * 60 * 1000); // 4 hours later
+          
+          const timeSlotResponse = await routeApi.createTimeSlot({
+            startTime: now.toISOString(),
+            endTime: endTime.toISOString(),
+            maxVehicles: Math.ceil(diversion.vehiclesAffected * 1.2), // 20% buffer
+            entryPoint: diversion.entryPoint
+          });
+          
+          if (timeSlotResponse.error) {
+            console.error("Error creating time slot:", timeSlotResponse.error);
+            return;
+          }
+          
+          // Add this time slot to the diversion
+          if (timeSlotResponse.data) {
+            diversion.timeSlots = [timeSlotResponse.data];
+          }
+        }
+        
+        // Get time slot IDs
+        const timeSlotIds = diversion.timeSlots.map(ts => ts.id);
+        
+        // For each alternative route, create a route recommendation
+        for (const [index, alternativeRoute] of diversion.alternativeRoutes.entries()) {
+          // Estimate duration based on route complexity
+          const expectedDuration = 10 + alternativeRoute.route.length * 5; // Simple estimation
+          
+          // Create a route recommendation
+          const routeResponse = await routeApi.createRoute({
+            entryPoint: diversion.entryPoint,
+            exitPoint: diversion.exitPoint,
+            route: alternativeRoute.route,
+            expectedDuration,
+            congestionLevel: diversion.congestionStatus,
+            vehicleTypes: ["CAR", "BUS", "TRUCK"], // Default to all vehicle types
+            timeSlotIds
+          });
+          
+          if (routeResponse.error) {
+            console.error(`Error creating route recommendation ${index + 1}:`, routeResponse.error);
+          }
+        }
+        
+        // Display success message
+        setError("Route diversions activated successfully. Alternative routes have been created.");
+      } else {
+        // No need to do anything special when deactivating a diversion
+        // The existing route recommendations will remain but won't be actively used
+        setError("Route diversion deactivated. Primary route restored.");
+      }
+
+      // Refresh the time slots and routes
+      setTimeout(async () => {
+        await fetchTimeSlots();
+        await fetchRoutes();
+      }, 1000);
+    } catch (err) {
+      console.error("Error managing route diversion:", err);
+      setError("Failed to manage route diversion. Please try again.");
+    }
+  };
+
+  // New function to calculate vehicle statistics
+  const calculateVehicleStats = () => {
+    // Count upcoming and ongoing events
+    const upcomingEvents = events.filter(event => event.status === "UPCOMING").length;
+    const ongoingEvents = events.filter(event => event.status === "ONGOING").length;
+    
+    // Only count upcoming and ongoing events for vehicle estimates
+    const relevantEvents = events.filter(
+      event => event.status === "UPCOMING" || event.status === "ONGOING"
+    );
+    
+    // Calculate total estimated vehicles using the helper function
+    const totalEstimatedVehicles = relevantEvents.reduce((sum, event) => {
+      return sum + calculateEstimatedVehicles(event.expectedVisitors);
+    }, 0);
+    
+    // Assume a fixed total capacity for all vehicles (can be adjusted)
+    const totalVehicleCapacity = 10000;
+    
+    // Calculate percentage of capacity being used
+    const capacityUsagePercentage = (totalEstimatedVehicles / totalVehicleCapacity) * 100;
+    
+    setVehicleStats({
+      totalEstimatedVehicles,
+      totalVehicleCapacity,
+      capacityUsagePercentage: Math.min(100, capacityUsagePercentage), // Cap at 100%
+      upcomingEvents,
+      ongoingEvents
+    });
   };
 
   // Add a new event
@@ -194,6 +574,8 @@ const EventManagementPage: React.FC = () => {
           return impactOrder[a.impactLevel] - impactOrder[b.impactLevel];
         case "visitors":
           return a.expectedVisitors - b.expectedVisitors;
+        case "vehicles":
+          return calculateEstimatedVehicles(a.expectedVisitors) - calculateEstimatedVehicles(b.expectedVisitors);
         default:
           return 0;
       }
@@ -233,6 +615,13 @@ const EventManagementPage: React.FC = () => {
     });
   };
 
+  // Helper function to calculate estimated vehicles from expected visitors
+  const calculateEstimatedVehicles = (visitorCount: number): number => {
+    // Assuming an average of 2 people per vehicle
+    const averageOccupancyPerVehicle = 2;
+    return Math.ceil(visitorCount / averageOccupancyPerVehicle);
+  };
+
   return (
     <div className="bg-gray-100 min-h-screen pb-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -269,6 +658,351 @@ const EventManagementPage: React.FC = () => {
           </div>
         )}
 
+        {/* Vehicle Statistics Dashboard */}
+        <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Vehicle Capacity Dashboard</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Estimated Vehicles Card */}
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-blue-600 font-medium">Estimated Vehicles</p>
+                  <p className="text-2xl font-bold text-blue-800 mt-1">{vehicleStats.totalEstimatedVehicles.toLocaleString()}</p>
+                </div>
+                <div className="bg-blue-100 p-3 rounded-full">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-2 text-sm text-blue-600">
+                Based on {vehicleStats.upcomingEvents + vehicleStats.ongoingEvents} upcoming/ongoing events
+              </div>
+            </div>
+
+            {/* Total Capacity Card */}
+            <div className="bg-purple-50 rounded-lg p-4 border border-purple-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-purple-600 font-medium">Total Vehicle Capacity</p>
+                  <p className="text-2xl font-bold text-purple-800 mt-1">{vehicleStats.totalVehicleCapacity.toLocaleString()}</p>
+                </div>
+                <div className="bg-purple-100 p-3 rounded-full">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-2 text-sm text-purple-600">
+                Maximum vehicle capacity for the area
+              </div>
+            </div>
+
+            {/* Capacity Usage Card */}
+            <div className="bg-green-50 rounded-lg p-4 border border-green-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-green-600 font-medium">Capacity Usage</p>
+                  <p className="text-2xl font-bold text-green-800 mt-1">{vehicleStats.capacityUsagePercentage.toFixed(1)}%</p>
+                </div>
+                <div className="bg-green-100 p-3 rounded-full">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-2">
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div 
+                    className={`h-2.5 rounded-full ${
+                      vehicleStats.capacityUsagePercentage > 85 ? 'bg-red-600' : 
+                      vehicleStats.capacityUsagePercentage > 70 ? 'bg-yellow-500' : 
+                      'bg-green-600'
+                    }`} 
+                    style={{ width: `${vehicleStats.capacityUsagePercentage}%` }}
+                  ></div>
+                </div>
+                <p className="text-sm mt-1 text-green-600">
+                  {vehicleStats.capacityUsagePercentage > 85 ? 'Critical - Consider limiting new events' : 
+                   vehicleStats.capacityUsagePercentage > 70 ? 'High - Monitor closely' : 
+                   'Normal - Good capacity available'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Traffic Diversion Management */}
+        <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Traffic Diversion Management</h2>
+              <p className="text-gray-600 mt-1">Manage traffic flow and route recommendations based on event congestion</p>
+            </div>
+            <div className="mt-3 sm:mt-0 flex space-x-3">
+              <button
+                onClick={() => setIsCreatingTimeSlot(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center shadow-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+                Create Time Slot
+              </button>
+            </div>
+          </div>
+
+          {/* Active Diversions */}
+          <div className="mb-6">
+            <h3 className="text-md font-medium text-gray-800 mb-3">Active Diversions</h3>
+            {trafficDiversions.filter(d => d.isActive).length === 0 ? (
+              <div className="bg-gray-50 p-4 rounded-md text-center">
+                <p className="text-gray-500">No active traffic diversions</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {trafficDiversions.filter(d => d.isActive).map((diversion, idx) => (
+                  <div key={idx} className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-medium text-red-800">{diversion.entryPoint} → {diversion.exitPoint}</h4>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
+                          High Congestion
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => toggleDiversionStatus(diversion)}
+                        className="text-xs rounded-full px-3 py-1 bg-white text-red-600 border border-red-200 hover:bg-red-50"
+                      >
+                        Deactivate
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-2">
+                      <strong>Reason:</strong> {diversion.diversionReason}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      <strong>Vehicles affected:</strong> {diversion.vehiclesAffected.toLocaleString()}
+                    </p>
+                    <div className="mt-2">
+                      <p className="text-sm font-medium text-gray-700">Recommended alternative routes:</p>
+                      <ul className="mt-1 ml-4 text-sm text-gray-600 list-disc">
+                        {diversion.alternativeRoutes.map((route, i) => (
+                          <li key={i}>{route.route.join(" → ")} <span className="text-xs text-gray-500">({route.reason})</span></li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recommended Diversions */}
+          <div className="mb-6">
+            <h3 className="text-md font-medium text-gray-800 mb-3">Recommended Diversions</h3>
+            {trafficDiversions.filter(d => !d.isActive && d.congestionStatus === "MEDIUM").length === 0 ? (
+              <div className="bg-gray-50 p-4 rounded-md text-center">
+                <p className="text-gray-500">No recommended diversions at this time</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {trafficDiversions.filter(d => !d.isActive && d.congestionStatus === "MEDIUM").map((diversion, idx) => (
+                  <div key={idx} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-medium text-yellow-800">{diversion.entryPoint} → {diversion.exitPoint}</h4>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
+                          Medium Congestion
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => toggleDiversionStatus(diversion)}
+                        className="text-xs rounded-full px-3 py-1 bg-white text-yellow-600 border border-yellow-200 hover:bg-yellow-50"
+                      >
+                        Activate
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-2">
+                      <strong>Reason:</strong> {diversion.diversionReason}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      <strong>Vehicles affected:</strong> {diversion.vehiclesAffected.toLocaleString()}
+                    </p>
+                    <div className="mt-2">
+                      <p className="text-sm font-medium text-gray-700">Recommended alternative routes:</p>
+                      <ul className="mt-1 ml-4 text-sm text-gray-600 list-disc">
+                        {diversion.alternativeRoutes.map((route, i) => (
+                          <li key={i}>{route.route.join(" → ")} <span className="text-xs text-gray-500">({route.reason})</span></li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Time Slots */}
+          <div>
+            <h3 className="text-md font-medium text-gray-800 mb-3">Entry Time Slots</h3>
+            {timeSlots.length === 0 ? (
+              <div className="bg-gray-50 p-4 rounded-md text-center">
+                <p className="text-gray-500">No time slots configured</p>
+                <button
+                  onClick={() => setIsCreatingTimeSlot(true)}
+                  className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  Create your first time slot
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white overflow-x-auto border rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Entry Point
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Time Range
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Capacity
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {timeSlots.map((slot) => (
+                      <tr key={slot.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{slot.entryPoint}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {new Date(slot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
+                            {new Date(slot.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(slot.startTime).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {slot.currentAllocation}/{slot.maxVehicles} vehicles
+                          </div>
+                          <div className="w-24 bg-gray-200 rounded-full h-1.5 mt-1">
+                            <div 
+                              className={`h-1.5 rounded-full ${
+                                (slot.currentAllocation / slot.maxVehicles) > 0.9 ? 'bg-red-600' : 
+                                (slot.currentAllocation / slot.maxVehicles) > 0.7 ? 'bg-yellow-500' : 
+                                'bg-green-600'
+                              }`} 
+                              style={{ width: `${(slot.currentAllocation / slot.maxVehicles) * 100}%` }}
+                            ></div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            slot.status === "OPEN" ? "bg-green-100 text-green-800" :
+                            slot.status === "FILLING" ? "bg-blue-100 text-blue-800" :
+                            slot.status === "FULL" ? "bg-yellow-100 text-yellow-800" :
+                            "bg-red-100 text-red-800"
+                          }`}>
+                            {slot.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <button className="text-blue-600 hover:text-blue-900 mr-2">Edit</button>
+                          <button className="text-red-600 hover:text-red-900">Delete</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Create Time Slot Modal */}
+        {isCreatingTimeSlot && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Time Slot</h3>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="entryPoint" className="block text-sm font-medium text-gray-700 mb-1">Entry Point</label>
+                  <select
+                    id="entryPoint"
+                    value={newTimeSlot.entryPoint}
+                    onChange={(e) => setNewTimeSlot({ ...newTimeSlot, entryPoint: e.target.value })}
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  >
+                    <option value="North Gate">North Gate</option>
+                    <option value="East Gate">East Gate</option>
+                    <option value="South Gate">South Gate</option>
+                    <option value="West Gate">West Gate</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                    <input
+                      type="datetime-local"
+                      id="startTime"
+                      value={newTimeSlot.startTime}
+                      onChange={(e) => setNewTimeSlot({ ...newTimeSlot, startTime: e.target.value })}
+                      className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                    <input
+                      type="datetime-local"
+                      id="endTime"
+                      value={newTimeSlot.endTime}
+                      onChange={(e) => setNewTimeSlot({ ...newTimeSlot, endTime: e.target.value })}
+                      className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="maxVehicles" className="block text-sm font-medium text-gray-700 mb-1">Max Vehicles</label>
+                  <input
+                    type="number"
+                    id="maxVehicles"
+                    value={newTimeSlot.maxVehicles}
+                    onChange={(e) => setNewTimeSlot({ ...newTimeSlot, maxVehicles: parseInt(e.target.value) })}
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    min="1"
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  onClick={() => setIsCreatingTimeSlot(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateTimeSlot}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Create
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Filters and Search */}
         <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0 md:space-x-4">
@@ -301,6 +1035,7 @@ const EventManagementPage: React.FC = () => {
                   <option value="name">Name (A-Z)</option>
                   <option value="impact">Impact Level</option>
                   <option value="visitors">Visitor Count</option>
+                  <option value="vehicles">Estimated Vehicles</option>
                 </select>
               </div>
             </div>
@@ -424,6 +1159,9 @@ const EventManagementPage: React.FC = () => {
                       Traffic Impact
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Estimated Vehicles
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -469,6 +1207,26 @@ const EventManagementPage: React.FC = () => {
                         <span className={`px-2 py-1 text-xs rounded-full ${getImpactBadgeColor(event.impactLevel)}`}>
                           {event.impactLevel}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <div className="text-sm font-medium text-gray-900">
+                            {calculateEstimatedVehicles(event.expectedVisitors).toLocaleString()}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Based on {event.expectedVisitors.toLocaleString()} visitors
+                          </div>
+                          {event.status === "UPCOMING" || event.status === "ONGOING" ? (
+                            <div className="mt-1">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                <svg className="mr-1 h-2 w-2 text-blue-400" fill="currentColor" viewBox="0 0 8 8">
+                                  <circle cx="4" cy="4" r="3" />
+                                </svg>
+                                Active
+                              </span>
+                            </div>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeColor(event.status)}`}>
