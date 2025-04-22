@@ -21,15 +21,17 @@ model Users {
 }
 
 model TrafficMap {
-  id          Int           @id @default(autoincrement())
-  name        String
-  description String?
-  imageUrl    String
-  width       Int
-  height      Int
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  trafficData TrafficData[]
+  id            Int             @id @default(autoincrement())
+  name          String
+  description   String?
+  imageUrl      String
+  width         Int
+  height        Int
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  trafficData   TrafficData[]
+  simulations   SimulationParams[]
+  trafficStats  TrafficStats[]
 }
 
 model TrafficData {
@@ -44,6 +46,7 @@ model TrafficData {
   density   Density    @default(LOW)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+  vehicles  Vehicle[]
 }
 
 enum RoadType {
@@ -57,4 +60,178 @@ enum Density {
   MEDIUM
   HIGH
   CONGESTED
+}
+
+model Event {
+  id               Int        @id @default(autoincrement())
+  name             String
+  description      String?
+  startDate        DateTime
+  endDate          DateTime
+  impactLevel      ImpactLevel @default(MEDIUM)
+  expectedVisitors Int        @default(0)
+  location         String
+  status           EventStatus @default(UPCOMING)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+}
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum ImpactLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model TrafficStats {
+  id              Int       @id @default(autoincrement())
+  mapId           Int
+  map             TrafficMap @relation(fields: [mapId], references: [id])
+  totalVehicles   Int       @default(0)
+  activeMaps      Int?      @default(1)
+  congestionLevel String    @default("MEDIUM")
+  peakHours       String[]
+  eventsToday     Int       @default(0)
+  date            DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Vehicle {
+  id        Int         @id @default(autoincrement())
+  roadId    Int
+  road      TrafficData @relation(fields: [roadId], references: [id])
+  x         Float
+  y         Float
+  targetX   Float
+  targetY   Float
+  speed     Float       @default(1.0)
+  color     String      @default("#3498db")
+  size      Float       @default(3.0)
+  direction Float       @default(0.0)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model TimeSlot {
+  id               Int          @id @default(autoincrement())
+  startTime        DateTime
+  endTime          DateTime
+  maxVehicles      Int
+  currentAllocation Int         @default(0)
+  status           SlotStatus   @default(OPEN)
+  entryPoint       String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  routeRecommendations RouteRecommendation[]
+}
+
+enum SlotStatus {
+  OPEN
+  FILLING
+  FULL
+  CLOSED
+}
+
+model RouteRecommendation {
+  id                Int         @id @default(autoincrement())
+  entryPoint        String
+  exitPoint         String
+  route             String[]
+  expectedDuration  Int
+  congestionLevel   CongestionLevel @default(MEDIUM)
+  vehicleTypes      String[]
+  timeSlotIds       Int[]
+  timeSlots         TimeSlot[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
+
+enum CongestionLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model SimulationParams {
+  id                 Int           @id @default(autoincrement())
+  trafficMapId       Int
+  trafficMap         TrafficMap    @relation(fields: [trafficMapId], references: [id])
+  timeOfDay          TimeOfDay     @default(MORNING)
+  dayType            DayType       @default(WEEKDAY)
+  vehicleDensity     Int           @default(100)
+  hasActiveEvents    Boolean       @default(false)
+  weatherCondition   Weather       @default(CLEAR)
+  routingStrategy    RoutingStrategy @default(SHORTEST_PATH)
+  includeLargeVehicles Boolean     @default(true)
+  congestionThreshold Int          @default(70)
+  simulationDate     DateTime      @default(now())
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  simulationResults  SimulationResult[]
+}
+
+enum TimeOfDay {
+  MORNING
+  AFTERNOON
+  EVENING
+  NIGHT
+}
+
+enum DayType {
+  WEEKDAY
+  WEEKEND
+  HOLIDAY
+}
+
+enum Weather {
+  CLEAR
+  RAIN
+  SNOW
+  FOG
+}
+
+enum RoutingStrategy {
+  SHORTEST_PATH
+  BALANCED
+  AVOID_CONGESTION
+}
+
+model SimulationResult {
+  id                Int           @id @default(autoincrement())
+  simulationId      Int
+  simulation        SimulationParams @relation(fields: [simulationId], references: [id])
+  congestionPercentage Int        @default(0)
+  bottlenecks       String[]
+  avgTravelTime     Int           @default(0)
+  completedVehicles Int           @default(0)
+  createdAt         DateTime      @default(now())
+}
+
+model TrafficSnapshot {
+  id              Int           @id @default(autoincrement())
+  time            DateTime      @default(now())
+  totalVehicles   Int           @default(0)
+  congestionLevel Float         @default(0.0)
+  avgSpeed        Float         @default(0.0)
+  entryPoints     Json?
+  createdAt       DateTime      @default(now())
+}
+
+model DayData {
+  id            Int       @id @default(autoincrement())
+  date          DateTime  @default(now()) @unique
+  totalVehicles Int       @default(0)
+  peakCongestion Float     @default(0.0)
+  avgWaitTime   Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }

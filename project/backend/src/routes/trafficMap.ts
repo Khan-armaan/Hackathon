@@ -1,23 +1,8 @@
 import express from "express";
-import prisma from "../lib/prisma";
-import jwt from "jsonwebtoken";
+import { PrismaClient } from "@prisma/client";
+const prisma = new PrismaClient();
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 export const trafficMapRouter = express.Router();
-
-// Middleware to verify JWT token
-const authenticateToken = (req: any, res: any, next: any) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) return res.status(401).json({ error: "Access denied" });
-
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (err) return res.status(403).json({ error: "Invalid token" });
-    req.user = user;
-    next();
-  });
-};
 
 /**
  * @swagger
@@ -100,8 +85,6 @@ const authenticateToken = (req: any, res: any, next: any) => {
  *   post:
  *     summary: Create a new traffic map
  *     tags: [TrafficMap]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -113,12 +96,10 @@ const authenticateToken = (req: any, res: any, next: any) => {
  *         description: Map created successfully
  *       400:
  *         description: Invalid input
- *       401:
- *         description: Unauthorized
  *       500:
  *         description: Server error
  */
-trafficMapRouter.post("/", authenticateToken, async (req, res) => {
+trafficMapRouter.post("/", async (req, res) => {
   try {
     const { name, description, imageUrl, width, height } = req.body;
 
@@ -233,8 +214,6 @@ trafficMapRouter.get("/:id", async (req, res) => {
  *   put:
  *     summary: Update a traffic map
  *     tags: [TrafficMap]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -253,14 +232,12 @@ trafficMapRouter.get("/:id", async (req, res) => {
  *         description: Map updated successfully
  *       400:
  *         description: Invalid input
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Map not found
  *       500:
  *         description: Server error
  */
-trafficMapRouter.put("/:id", authenticateToken, async (req, res) => {
+trafficMapRouter.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, imageUrl, width, height } = req.body;
@@ -298,8 +275,6 @@ trafficMapRouter.put("/:id", authenticateToken, async (req, res) => {
  *   delete:
  *     summary: Delete a traffic map
  *     tags: [TrafficMap]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -310,14 +285,12 @@ trafficMapRouter.put("/:id", authenticateToken, async (req, res) => {
  *     responses:
  *       200:
  *         description: Map deleted successfully
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Map not found
  *       500:
  *         description: Server error
  */
-trafficMapRouter.delete("/:id", authenticateToken, async (req, res) => {
+trafficMapRouter.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -350,8 +323,6 @@ trafficMapRouter.delete("/:id", authenticateToken, async (req, res) => {
  *   post:
  *     summary: Add traffic data to a map
  *     tags: [TrafficData]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: mapId
@@ -370,58 +341,52 @@ trafficMapRouter.delete("/:id", authenticateToken, async (req, res) => {
  *         description: Traffic data added successfully
  *       400:
  *         description: Invalid input
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Map not found
  *       500:
  *         description: Server error
  */
-trafficMapRouter.post(
-  "/:mapId/traffic-data",
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const { mapId } = req.params;
-      const { startX, startY, endX, endY, roadType, density } = req.body;
+trafficMapRouter.post("/:mapId/traffic-data", async (req, res) => {
+  try {
+    const { mapId } = req.params;
+    const { startX, startY, endX, endY, roadType, density } = req.body;
 
-      // Check if map exists
-      const map = await prisma.trafficMap.findUnique({
-        where: {
-          id: parseInt(mapId),
-        },
-      });
+    // Check if map exists
+    const map = await prisma.trafficMap.findUnique({
+      where: {
+        id: parseInt(mapId),
+      },
+    });
 
-      if (!map) {
-        return res.status(404).json({ error: "Map not found" });
-      }
-
-      if (!startX || !startY || !endX || !endY) {
-        return res.status(400).json({ error: "Missing required coordinates" });
-      }
-
-      const newTrafficData = await prisma.trafficData.create({
-        data: {
-          mapId: parseInt(mapId),
-          startX,
-          startY,
-          endX,
-          endY,
-          roadType: roadType || "NORMAL",
-          density: density || "LOW",
-        },
-      });
-
-      res.status(201).json({
-        message: "Traffic data added successfully",
-        trafficData: newTrafficData,
-      });
-    } catch (error) {
-      console.error("Add traffic data error:", error);
-      res.status(500).json({ error: "Failed to add traffic data" });
+    if (!map) {
+      return res.status(404).json({ error: "Map not found" });
     }
+
+    if (!startX || !startY || !endX || !endY) {
+      return res.status(400).json({ error: "Missing required coordinates" });
+    }
+
+    const newTrafficData = await prisma.trafficData.create({
+      data: {
+        mapId: parseInt(mapId),
+        startX,
+        startY,
+        endX,
+        endY,
+        roadType: roadType || "NORMAL",
+        density: density || "LOW",
+      },
+    });
+
+    res.status(201).json({
+      message: "Traffic data added successfully",
+      trafficData: newTrafficData,
+    });
+  } catch (error) {
+    console.error("Add traffic data error:", error);
+    res.status(500).json({ error: "Failed to add traffic data" });
   }
-);
+});
 
 /**
  * @swagger
@@ -429,8 +394,6 @@ trafficMapRouter.post(
  *   put:
  *     summary: Update traffic data
  *     tags: [TrafficData]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: mapId
@@ -455,50 +418,44 @@ trafficMapRouter.post(
  *         description: Traffic data updated successfully
  *       400:
  *         description: Invalid input
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Traffic data not found
  *       500:
  *         description: Server error
  */
-trafficMapRouter.put(
-  "/:mapId/traffic-data/:dataId",
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const { mapId, dataId } = req.params;
-      const { startX, startY, endX, endY, roadType, density } = req.body;
+trafficMapRouter.put("/:mapId/traffic-data/:dataId", async (req, res) => {
+  try {
+    const { mapId, dataId } = req.params;
+    const { startX, startY, endX, endY, roadType, density } = req.body;
 
-      if (!startX || !startY || !endX || !endY) {
-        return res.status(400).json({ error: "Missing required coordinates" });
-      }
-
-      const updatedTrafficData = await prisma.trafficData.update({
-        where: {
-          id: parseInt(dataId),
-          mapId: parseInt(mapId),
-        },
-        data: {
-          startX,
-          startY,
-          endX,
-          endY,
-          roadType,
-          density,
-        },
-      });
-
-      res.status(200).json({
-        message: "Traffic data updated successfully",
-        trafficData: updatedTrafficData,
-      });
-    } catch (error) {
-      console.error("Update traffic data error:", error);
-      res.status(500).json({ error: "Failed to update traffic data" });
+    if (!startX || !startY || !endX || !endY) {
+      return res.status(400).json({ error: "Missing required coordinates" });
     }
+
+    const updatedTrafficData = await prisma.trafficData.update({
+      where: {
+        id: parseInt(dataId),
+        mapId: parseInt(mapId),
+      },
+      data: {
+        startX,
+        startY,
+        endX,
+        endY,
+        roadType,
+        density,
+      },
+    });
+
+    res.status(200).json({
+      message: "Traffic data updated successfully",
+      trafficData: updatedTrafficData,
+    });
+  } catch (error) {
+    console.error("Update traffic data error:", error);
+    res.status(500).json({ error: "Failed to update traffic data" });
   }
-);
+});
 
 /**
  * @swagger
@@ -506,8 +463,6 @@ trafficMapRouter.put(
  *   delete:
  *     summary: Delete traffic data
  *     tags: [TrafficData]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: mapId
@@ -524,35 +479,29 @@ trafficMapRouter.put(
  *     responses:
  *       200:
  *         description: Traffic data deleted successfully
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Traffic data not found
  *       500:
  *         description: Server error
  */
-trafficMapRouter.delete(
-  "/:mapId/traffic-data/:dataId",
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const { mapId, dataId } = req.params;
+trafficMapRouter.delete("/:mapId/traffic-data/:dataId", async (req, res) => {
+  try {
+    const { mapId, dataId } = req.params;
 
-      await prisma.trafficData.delete({
-        where: {
-          id: parseInt(dataId),
-          mapId: parseInt(mapId),
-        },
-      });
+    await prisma.trafficData.delete({
+      where: {
+        id: parseInt(dataId),
+        mapId: parseInt(mapId),
+      },
+    });
 
-      res.status(200).json({
-        message: "Traffic data deleted successfully",
-      });
-    } catch (error) {
-      console.error("Delete traffic data error:", error);
-      res.status(500).json({ error: "Failed to delete traffic data" });
-    }
+    res.status(200).json({
+      message: "Traffic data deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete traffic data error:", error);
+    res.status(500).json({ error: "Failed to delete traffic data" });
   }
-);
+});
 
 export default trafficMapRouter;

@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import path from "path";
 
 import swaggerUi from "swagger-ui-express";
 import { specs } from "./config/swagger";
@@ -8,7 +7,11 @@ import { specs } from "./config/swagger";
 import { uploadRouter } from "./routes/upload";
 import { adminRouter } from "./routes/admin";
 import trafficMapRouter from "./routes/trafficMap";
-
+import eventRouter from "./routes/events";
+import trafficStatsRouter from "./routes/trafficStats";
+import simulationRouter from "./routes/simulation";
+import routeSchedulingRouter from "./routes/routeScheduling";
+import trafficAnalyticsRouter from "./routes/trafficAnalytics";
 
 const app = express();
 
@@ -24,8 +27,6 @@ app.use(
 
 app.use(express.json());
 
-
-
 // Basic health check endpoint
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
@@ -35,6 +36,11 @@ app.get("/health", (req, res) => {
 app.use("/api/admin", adminRouter);
 app.use("/api/upload", uploadRouter);
 app.use("/api/traffic-map", trafficMapRouter);
+app.use("/api/events", eventRouter);
+app.use("/api/traffic-stats", trafficStatsRouter);
+app.use("/api/simulation", simulationRouter);
+app.use("/api/route-scheduling", routeSchedulingRouter);
+app.use("/api/traffic-analytics", trafficAnalyticsRouter);
 
 // Serve Swagger documentation
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
