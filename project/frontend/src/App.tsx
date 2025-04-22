@@ -8,6 +8,8 @@ import "./App.css";
 import AdminSignInPage from "./admin/AdminSignInPage";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminLayout from "./admin/AdminLayout";
+import UserDashboard from "./User/UserDashboard";
+import UserLayout from "./User/UserLayout";
 
 import { adminApi } from "./utils/api";
 
@@ -15,9 +17,9 @@ import { adminApi } from "./utils/api";
 const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
   const isAuthenticated = adminApi.isLoggedIn();
 
-  if (!isAuthenticated) {
-    return <Navigate to="/admin/login" replace />;
-  }
+  // if (!isAuthenticated) {
+  //   return <Navigate to="/admin/login" replace />;
+  // }
 
   return children;
 };
@@ -51,8 +53,18 @@ function App() {
           <Route path="salesview" element={<div>Sales View</div>} />
         </Route>
 
+        {/* User Routes */}
+        <Route path="/user" element={<UserLayout />}>
+          <Route path="dashboard" element={<UserDashboard />} />
+          <Route path="products" element={<div>Products Page</div>} />
+          <Route path="cart" element={<div>Shopping Cart</div>} />
+          <Route path="orders" element={<div>Order History</div>} />
+          <Route path="wishlist" element={<div>Wishlist</div>} />
+          <Route path="profile" element={<div>User Profile</div>} />
+        </Route>
+
         {/* Default route */}
-        <Route path="/" element={<Navigate to="/admin/login" replace />} />
+        <Route path="/" element={<Navigate to="/user/dashboard" replace />} />
       </Routes>
     </Router>
   );
