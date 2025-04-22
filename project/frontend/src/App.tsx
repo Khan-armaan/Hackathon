@@ -38,7 +38,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
           {/* Add other admin routes here */}
           <Route path="stores" element={<div>Stores Management</div>} />
           <Route path="users" element={<div>User Management</div>} />
