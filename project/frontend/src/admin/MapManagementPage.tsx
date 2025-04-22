@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Colors } from "../Colors";
+import { Link} from "react-router-dom";
+
 import { FiPlus, FiEdit, FiTrash2, FiEye } from "react-icons/fi";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -15,7 +15,7 @@ interface MapSummary {
 }
 
 const MapManagementPage: React.FC = () => {
-  const navigate = useNavigate();
+
   const [maps, setMaps] = useState<MapSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

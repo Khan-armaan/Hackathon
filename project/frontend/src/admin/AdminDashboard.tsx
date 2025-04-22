@@ -20,7 +20,7 @@ interface TrafficStats {
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<AdminUser | null>(null);
-  const [trafficStats, setTrafficStats] = useState<TrafficStats>({
+  const [trafficStats] = useState<TrafficStats>({
     totalMaps: 3,
     activeMaps: 1,
     congestionLevel: "HIGH",

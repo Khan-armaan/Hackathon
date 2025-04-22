@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Colors } from "../Colors";
+
 
 // Mock API calls (replace with actual API calls)
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";

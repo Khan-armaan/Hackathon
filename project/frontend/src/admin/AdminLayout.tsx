@@ -3,14 +3,9 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Colors } from "../Colors";
 import {
-  FiUsers,
-  FiSettings,
+  
   FiHome,
-  FiPackage,
-  FiGrid,
-  FiShoppingBag,
-  FiBox,
-  FiClipboard,
+
   FiMap,
   FiCalendar,
   FiTrendingUp,

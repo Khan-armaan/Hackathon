@@ -3,11 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Colors } from "../Colors";
 import {
   FiHome,
-  FiShoppingBag,
-  FiShoppingCart,
-  FiUser,
-  FiHeart,
-  FiPackage,
+
   FiMap,
 } from "react-icons/fi";
 
