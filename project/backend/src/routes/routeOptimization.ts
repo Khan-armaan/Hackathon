@@ -71,8 +71,28 @@ routeOptimizationRouter.post("/find-path", async (req, res) => {
       simulationParams,
     } = req.body;
 
+    console.log("Find path request:", {
+      mapId,
+      startX,
+      startY,
+      endX,
+      endY,
+      algorithm,
+      simulationParams
+    });
+
     if (!mapId || startX === undefined || startY === undefined || endX === undefined || endY === undefined) {
       return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Ensure all coordinates are numbers
+    const parsedStartX = Number(startX);
+    const parsedStartY = Number(startY);
+    const parsedEndX = Number(endX);
+    const parsedEndY = Number(endY);
+
+    if (isNaN(parsedStartX) || isNaN(parsedStartY) || isNaN(parsedEndX) || isNaN(parsedEndY)) {
+      return res.status(400).json({ error: "Coordinates must be valid numbers" });
     }
 
     // Fetch traffic data for the specified map
@@ -85,6 +105,8 @@ routeOptimizationRouter.post("/find-path", async (req, res) => {
     if (trafficData.length === 0) {
       return res.status(404).json({ error: "No traffic data found for this map" });
     }
+
+    console.log(`Found ${trafficData.length} traffic data items for map ${mapId}`);
 
     // Fetch active events that might affect the route
     const today = new Date();
@@ -101,14 +123,21 @@ routeOptimizationRouter.post("/find-path", async (req, res) => {
 
     // Build the graph from traffic data
     const graph = buildGraph(trafficData);
+    console.log(`Built graph with ${graph.nodes.size} nodes`);
 
     // Find the closest nodes to start and end points
-    const startNodeId = findClosestNode(graph, startX, startY);
-    const endNodeId = findClosestNode(graph, endX, endY);
+    const startNodeId = findClosestNode(graph, parsedStartX, parsedStartY);
+    const endNodeId = findClosestNode(graph, parsedEndX, parsedEndY);
 
-    if (startNodeId === null || endNodeId === null) {
-      return res.status(404).json({ error: "Could not locate valid start or end points on the map" });
+    if (startNodeId === null) {
+      return res.status(404).json({ error: "Could not locate valid start point on the map" });
     }
+
+    if (endNodeId === null) {
+      return res.status(404).json({ error: "Could not locate valid end point on the map" });
+    }
+
+    console.log(`Found start node ${startNodeId} and end node ${endNodeId}`);
 
     // Adjust weights based on simulation parameters and events
     let adjustedGraph = graph;
@@ -121,20 +150,32 @@ routeOptimizationRouter.post("/find-path", async (req, res) => {
         routingStrategy: simulationParams.routingStrategy || "SHORTEST_PATH",
       };
 
+      console.log(`Adjusting graph weights with parameters: ${JSON.stringify(params)}`);
       adjustedGraph = adjustWeightsForSimulation(graph, trafficData, params, events);
     }
 
     // Find the optimal path
     let pathResult;
     if (algorithm.toLowerCase() === "dijkstra") {
+      console.log(`Finding path using Dijkstra algorithm from node ${startNodeId} to ${endNodeId}`);
       pathResult = dijkstra(adjustedGraph, startNodeId, endNodeId);
     } else {
+      console.log(`Finding path using A* algorithm from node ${startNodeId} to ${endNodeId}`);
       pathResult = aStar(adjustedGraph, startNodeId, endNodeId);
     }
 
     if (!pathResult) {
-      return res.status(404).json({ error: "No valid path found between the specified points" });
+      return res.status(404).json({ 
+        error: "No valid path found between the specified points",
+        details: {
+          startNodeId,
+          endNodeId,
+          graphSize: graph.nodes.size
+        }
+      });
     }
+
+    console.log(`Found path with ${pathResult.path.length} nodes and ${pathResult.roadPath.length} road segments`);
 
     // Enhance the path result with road information
     const enhancedPath = await enhancePathWithRoadInfo(pathResult.roadPath, trafficData);
@@ -150,7 +191,10 @@ routeOptimizationRouter.post("/find-path", async (req, res) => {
 
   } catch (error) {
     console.error("Route optimization error:", error);
-    res.status(500).json({ error: "Failed to find optimal path" });
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : "Failed to find optimal path",
+      details: error instanceof Error ? error.stack : undefined
+    });
   }
 });
 
@@ -206,8 +250,27 @@ routeOptimizationRouter.post("/compare-paths", async (req, res) => {
       simulationParams,
     } = req.body;
 
+    console.log("Compare paths request:", {
+      mapId,
+      startX,
+      startY,
+      endX,
+      endY,
+      simulationParams
+    });
+
     if (!mapId || startX === undefined || startY === undefined || endX === undefined || endY === undefined) {
       return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Ensure all coordinates are numbers
+    const parsedStartX = Number(startX);
+    const parsedStartY = Number(startY);
+    const parsedEndX = Number(endX);
+    const parsedEndY = Number(endY);
+
+    if (isNaN(parsedStartX) || isNaN(parsedStartY) || isNaN(parsedEndX) || isNaN(parsedEndY)) {
+      return res.status(400).json({ error: "Coordinates must be valid numbers" });
     }
 
     // Fetch traffic data for the specified map
@@ -220,6 +283,8 @@ routeOptimizationRouter.post("/compare-paths", async (req, res) => {
     if (trafficData.length === 0) {
       return res.status(404).json({ error: "No traffic data found for this map" });
     }
+
+    console.log(`Found ${trafficData.length} traffic data items for map ${mapId}`);
 
     // Fetch active events that might affect the route
     const today = new Date();
@@ -236,14 +301,21 @@ routeOptimizationRouter.post("/compare-paths", async (req, res) => {
 
     // Build the graph from traffic data
     const graph = buildGraph(trafficData);
+    console.log(`Built graph with ${graph.nodes.size} nodes`);
 
     // Find the closest nodes to start and end points
-    const startNodeId = findClosestNode(graph, startX, startY);
-    const endNodeId = findClosestNode(graph, endX, endY);
+    const startNodeId = findClosestNode(graph, parsedStartX, parsedStartY);
+    const endNodeId = findClosestNode(graph, parsedEndX, parsedEndY);
 
-    if (startNodeId === null || endNodeId === null) {
-      return res.status(404).json({ error: "Could not locate valid start or end points on the map" });
+    if (startNodeId === null) {
+      return res.status(404).json({ error: "Could not locate valid start point on the map" });
     }
+
+    if (endNodeId === null) {
+      return res.status(404).json({ error: "Could not locate valid end point on the map" });
+    }
+
+    console.log(`Found start node ${startNodeId} and end node ${endNodeId}`);
 
     // Adjust weights based on simulation parameters and events
     let adjustedGraph = graph;
@@ -255,15 +327,26 @@ routeOptimizationRouter.post("/compare-paths", async (req, res) => {
         routingStrategy: simulationParams.routingStrategy || "SHORTEST_PATH",
       };
 
+      console.log(`Adjusting graph weights with parameters: ${JSON.stringify(params)}`);
       adjustedGraph = adjustWeightsForSimulation(graph, trafficData, params, events);
     }
 
     // Find paths using both algorithms
+    console.log(`Finding path using Dijkstra algorithm from node ${startNodeId} to ${endNodeId}`);
     const dijkstraResult = dijkstra(adjustedGraph, startNodeId, endNodeId);
+    
+    console.log(`Finding path using A* algorithm from node ${startNodeId} to ${endNodeId}`);
     const astarResult = aStar(adjustedGraph, startNodeId, endNodeId);
 
     if (!dijkstraResult && !astarResult) {
-      return res.status(404).json({ error: "No valid path found between the specified points" });
+      return res.status(404).json({ 
+        error: "No valid path found between the specified points",
+        details: {
+          startNodeId,
+          endNodeId,
+          graphSize: graph.nodes.size
+        }
+      });
     }
 
     // Prepare results
@@ -288,6 +371,7 @@ routeOptimizationRouter.post("/compare-paths", async (req, res) => {
     };
 
     if (dijkstraResult) {
+      console.log(`Dijkstra found path with ${dijkstraResult.path.length} nodes and ${dijkstraResult.roadPath.length} road segments`);
       const enhancedDijkstraPath = await enhancePathWithRoadInfo(dijkstraResult.roadPath, trafficData);
       results.dijkstra = {
         path: dijkstraResult.path,
@@ -296,9 +380,12 @@ routeOptimizationRouter.post("/compare-paths", async (req, res) => {
         totalWeight: dijkstraResult.totalWeight,
         estimatedTimeMinutes: Math.round(dijkstraResult.totalWeight * 2) 
       };
+    } else {
+      console.log("Dijkstra algorithm could not find a valid path");
     }
 
     if (astarResult) {
+      console.log(`A* found path with ${astarResult.path.length} nodes and ${astarResult.roadPath.length} road segments`);
       const enhancedAstarPath = await enhancePathWithRoadInfo(astarResult.roadPath, trafficData);
       results.astar = {
         path: astarResult.path,
@@ -307,12 +394,17 @@ routeOptimizationRouter.post("/compare-paths", async (req, res) => {
         totalWeight: astarResult.totalWeight,
         estimatedTimeMinutes: Math.round(astarResult.totalWeight * 2)
       };
+    } else {
+      console.log("A* algorithm could not find a valid path");
     }
 
     res.status(200).json(results);
   } catch (error) {
     console.error("Route comparison error:", error);
-    res.status(500).json({ error: "Failed to compare paths" });
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : "Failed to compare paths",
+      details: error instanceof Error ? error.stack : undefined
+    });
   }
 });
 
@@ -375,6 +467,12 @@ function findClosestNode(graph: { nodes: Map<number, { x: number; y: number }> }
 
   // Log the closest nodes for debugging
   console.log(`Closest nodes: ${JSON.stringify(closestNodes)}`);
+  
+  if (closestNodeId === null) {
+    console.error("Could not find any nodes close to the target coordinates");
+    return null;
+  }
+  
   console.log(`Selected node ${closestNodeId} at distance ${minDistance}`);
 
   return closestNodeId;
