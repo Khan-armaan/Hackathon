@@ -212,7 +212,7 @@ const UserDashboard: React.FC = () => {
       
       // Find best travel time based on events schedule
       const eventStartTimes = events.map(event => new Date(event.startDate));
-      const eventEndTimes = events.map(event => new Date(event.endDate));
+     
       
       // Determine best time to visit
       let bestTravelTime = "Before 9:00 AM or after 7:00 PM";

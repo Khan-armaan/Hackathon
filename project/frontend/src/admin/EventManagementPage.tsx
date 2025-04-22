@@ -98,8 +98,7 @@ const EventManagementPage: React.FC = () => {
   const [routes, setRoutes] = useState<RouteRecommendation[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [trafficDiversions, setTrafficDiversions] = useState<TrafficDiversion[]>([]);
-  const [isRouteDiversionModalOpen, setIsRouteDiversionModalOpen] = useState(false);
-  const [selectedDiversion, setSelectedDiversion] = useState<TrafficDiversion | null>(null);
+
   const [trafficStats, setTrafficStats] = useState<any>(null);
   const [trafficSnapshots, setTrafficSnapshots] = useState<any[]>([]);
   const [isCreatingTimeSlot, setIsCreatingTimeSlot] = useState(false);
@@ -244,10 +243,7 @@ const EventManagementPage: React.FC = () => {
         // Only create diversions for locations with active events
         if (eventsByLocation[exitPoint]) {
           // Check if we already have routes for this pair
-          const existingRoutes = routes.filter(r => 
-            r.entryPoint === entryPoint && r.exitPoint === exitPoint
-          );
-
+        
           // Calculate congestion status based on visitors and capacity
           const vehiclesAffected = Math.ceil(visitorsByEntryPoint[entryPoint] / 4); // Assume 4 people per vehicle on average
           let congestionStatus: "LOW" | "MEDIUM" | "HIGH" = "LOW";

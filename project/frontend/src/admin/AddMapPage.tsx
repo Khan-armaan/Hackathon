@@ -33,7 +33,7 @@ const AddMapPage: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
-  const [drawing, setDrawing] = useState(false);
+ 
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(
     null
   );
@@ -57,7 +57,7 @@ const AddMapPage: React.FC = () => {
   const [currentPoints, setCurrentPoints] = useState<{x: number, y: number}[]>([]);
   const [isCreatingPath, setIsCreatingPath] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [panOffset] = useState({ x: 0, y: 0 });
 
   // Fetch map data if editing
   useEffect(() => {
@@ -418,6 +418,7 @@ const AddMapPage: React.FC = () => {
 
   const handleCanvasMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
     // We don't complete the path on mouse up anymore
+    
     // Instead, we'll have a "Complete Path" button
   };
   

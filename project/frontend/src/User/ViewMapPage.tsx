@@ -63,12 +63,6 @@ interface TrafficMap {
   trafficData: TrafficData[];
 }
 
-interface SimulationParams {
-  timeOfDay: "MORNING" | "AFTERNOON" | "EVENING" | "NIGHT";
-  dayType: "WEEKDAY" | "WEEKEND" | "HOLIDAY";
-  weatherCondition: "CLEAR" | "RAIN" | "SNOW" | "FOG";
-  routingStrategy: "SHORTEST_PATH" | "BALANCED" | "AVOID_CONGESTION";
-}
 
 // Helper interface for shortest path calculation
 interface RoadNode {
@@ -115,12 +109,7 @@ const ViewMapPage = (): React.ReactNode => {
   const [pathComparison, setPathComparison] = useState<PathComparison | null>(
     null
   );
-  const [simulationParams, setSimulationParams] = useState<SimulationParams>({
-    timeOfDay: "MORNING",
-    dayType: "WEEKDAY",
-    weatherCondition: "CLEAR",
-    routingStrategy: "SHORTEST_PATH",
-  });
+
   // Add a new state variable for help message
   const [helpMessage, setHelpMessage] = useState<string | null>(null);
 
@@ -367,7 +356,7 @@ const ViewMapPage = (): React.ReactNode => {
     }
 
     // Create a simplified graph representation
-    const { graph, roadNodes } = buildGraphFromRoads(roadData, start, end);
+    const { graph  } = buildGraphFromRoads(roadData, start, end);
 
     if (Object.keys(graph).length === 0) {
       console.error("Failed to build valid graph");
@@ -1062,10 +1051,7 @@ const ViewMapPage = (): React.ReactNode => {
     return description;
   };
 
-  const comparePathAlgorithms = async () => {
-    // Use the shortest path directly instead of comparing
-    findOptimalPath();
-  };
+
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isSelectingPoints || !canvasRef.current) return;
@@ -2044,15 +2030,6 @@ const ViewMapPage = (): React.ReactNode => {
     setSimulationSpeed(parseFloat(e.target.value));
   };
 
-  const handleSimulationParamChange = (
-    e: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setSimulationParams((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
 
   // Format time in minutes for display
   const formatTime = (minutes: number): string => {
@@ -2283,175 +2260,13 @@ const ViewMapPage = (): React.ReactNode => {
   };
 
   // Convert hex color to rgba for transparency support
-  const convertHexToRGBA = (hex: string, alpha: number): string => {
-    // Remove # if present
-    hex = hex.replace("#", "");
+ 
 
-    // Parse hex values
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-
-    // Return rgba string
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
-
-  // Draw a Google Maps style direction arrow
-  const drawArrow = (
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    angle: number,
-    color: string
-  ) => {
-    const headLength = 12;
-    const headWidth = 6;
-
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-
-    // Draw a circular background for the arrow
-    ctx.beginPath();
-    ctx.arc(0, 0, 8, 0, Math.PI * 2);
-    ctx.fillStyle = "white";
-    ctx.fill();
-    ctx.strokeStyle = convertHexToRGBA(color, 0.5);
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Draw the arrow
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(headLength / 2, 0);
-    ctx.lineTo(-headLength / 2, -headWidth / 2);
-    ctx.lineTo(-headLength / 3, 0);
-    ctx.lineTo(-headLength / 2, headWidth / 2);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.restore();
-  };
-
+ 
   // Draw congestion indicator with improved style
-  const drawCongestionIndicator = (
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    density: string
-  ) => {
-    const radius = density === "CONGESTED" ? 10 : 8;
-    const color = density === "CONGESTED" ? "#DB4437" : "#F4B400"; // Google red or yellow
-
-    ctx.save();
-
-    // Draw circular background
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw colored circle
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Add traffic icon
-    ctx.fillStyle = "white";
-    ctx.font = `${radius}px Arial`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("!", x, y);
-
-    ctx.restore();
-  };
-
+ 
   // Visualize traffic flow with improved animation
-  const visualizeTrafficFlow = (
-    ctx: CanvasRenderingContext2D,
-    path: OptimalPath
-  ) => {
-    if (!path.coordinatePath || path.coordinatePath.length < 2) {
-      return;
-    }
-
-    try {
-      ctx.save();
-
-      // Number of flow indicators (vehicles)
-      const numIndicators = Math.min(
-        10,
-        Math.floor(path.coordinatePath.length / 2)
-      );
-
-      // Current time for animation
-      const time = Date.now() / 1000;
-
-      for (let i = 0; i < numIndicators; i++) {
-        // Calculate position in the path (0-1)
-        // Add variation in speed for different dots
-        const speedVariation = 0.9 + (i % 3) * 0.1; // 0.9, 1.0, or 1.1
-        const position =
-          (time * simulationSpeed * 0.1 * speedVariation + i / numIndicators) %
-          1;
-
-        // Get interpolated point in the path
-        const pointIndex = Math.floor(
-          position * (path.coordinatePath.length - 1)
-        );
-        const nextPointIndex = Math.min(
-          pointIndex + 1,
-          path.coordinatePath.length - 1
-        );
-
-        // Check if the points exist and are valid
-        const currentPoint = path.coordinatePath[pointIndex];
-        const nextPoint = path.coordinatePath[nextPointIndex];
-
-        if (
-          !currentPoint ||
-          !nextPoint ||
-          currentPoint.x === undefined ||
-          currentPoint.y === undefined ||
-          nextPoint.x === undefined ||
-          nextPoint.y === undefined
-        ) {
-          continue;
-        }
-
-        const subPosition =
-          position * (path.coordinatePath.length - 1) - pointIndex;
-
-        const x = currentPoint.x + (nextPoint.x - currentPoint.x) * subPosition;
-        const y = currentPoint.y + (nextPoint.y - currentPoint.y) * subPosition;
-
-        // Skip if NaN
-        if (isNaN(x) || isNaN(y)) {
-          continue;
-        }
-
-        // Draw a Google Maps style dot with pulsing effect
-        const size = 4 + Math.sin(time * 3 + i) * 1.5;
-
-        // White glow effect
-        ctx.beginPath();
-        ctx.arc(x, y, size + 2, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-        ctx.fill();
-
-        // Blue dot - Google Maps style
-        ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fillStyle = "#4285F4";
-        ctx.fill();
-      }
-
-      ctx.restore();
-    } catch (error) {
-      console.error("Error visualizing traffic flow:", error);
-    }
-  };
+ 
 
   // Draw a point marker (start/end) with an improved Google Maps-like appearance
   const drawPathPoint = (
@@ -2520,7 +2335,7 @@ const ViewMapPage = (): React.ReactNode => {
     let lastDirection = "";
 
     for (let i = 1; i < path.roadPath.length; i++) {
-      const prevRoad = path.roadPath[i - 1];
+    
       const road = path.roadPath[i];
 
       // Calculate angle of the current road segment

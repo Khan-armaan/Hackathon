@@ -14,7 +14,7 @@ import {
   Filler
 } from "chart.js";
 import { Line, Bar, Pie, Doughnut } from "react-chartjs-2";
-import { eventsApi, trafficApi, trafficAnalyticsApi } from "../utils/api";
+import { eventsApi,  trafficAnalyticsApi } from "../utils/api";
 
 // Register ChartJS components
 ChartJS.register(
