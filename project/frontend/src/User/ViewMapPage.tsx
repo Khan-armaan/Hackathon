@@ -27,6 +27,20 @@ interface TrafficData {
   density: "LOW" | "MEDIUM" | "HIGH" | "CONGESTED";
 }
 
+interface OptimalPath {
+  algorithm: string;
+  path: number[];
+  roadPath: TrafficData[];
+  coordinatePath: {x: number, y: number}[];
+  totalWeight: number;
+  estimatedTimeMinutes: number;
+}
+
+interface PathComparison {
+  dijkstra: OptimalPath | null;
+  astar: OptimalPath | null;
+}
+
 interface TrafficMap {
   id: number;
   name: string;
@@ -35,6 +49,13 @@ interface TrafficMap {
   width: number;
   height: number;
   trafficData: TrafficData[];
+}
+
+interface SimulationParams {
+  timeOfDay: "MORNING" | "AFTERNOON" | "EVENING" | "NIGHT";
+  dayType: "WEEKDAY" | "WEEKEND" | "HOLIDAY";
+  weatherCondition: "CLEAR" | "RAIN" | "SNOW" | "FOG";
+  routingStrategy: "SHORTEST_PATH" | "BALANCED" | "AVOID_CONGESTION";
 }
 
 const ViewMapPage: React.FC = () => {
@@ -48,6 +69,22 @@ const ViewMapPage: React.FC = () => {
   const [simulationSpeed, setSimulationSpeed] = useState<number>(1);
   const [isSimulationRunning, setIsSimulationRunning] = useState(true);
   const animationRef = useRef<number | null>(null);
+  
+  // State for pathfinding
+  const [startPoint, setStartPoint] = useState<{x: number, y: number} | null>(null);
+  const [endPoint, setEndPoint] = useState<{x: number, y: number} | null>(null);
+  const [isSelectingPoints, setIsSelectingPoints] = useState<boolean>(false);
+  const [optimalPath, setOptimalPath] = useState<OptimalPath | null>(null);
+  const [isLoadingPath, setIsLoadingPath] = useState<boolean>(false);
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState<string>("astar");
+  const [showPathComparison, setShowPathComparison] = useState<boolean>(false);
+  const [pathComparison, setPathComparison] = useState<PathComparison | null>(null);
+  const [simulationParams, setSimulationParams] = useState<SimulationParams>({
+    timeOfDay: "MORNING",
+    dayType: "WEEKDAY",
+    weatherCondition: "CLEAR",
+    routingStrategy: "SHORTEST_PATH",
+  });
 
   // Fetch map data when component mounts
   useEffect(() => {
@@ -67,7 +104,7 @@ const ViewMapPage: React.FC = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isSimulationRunning, vehicles, map, image]);
+  }, [isSimulationRunning, vehicles, map, image, optimalPath, pathComparison, showPathComparison]);
 
   const fetchMapData = async (mapId: number) => {
     try {
@@ -196,6 +233,120 @@ const ViewMapPage: React.FC = () => {
     setVehicles(newVehicles);
   };
 
+  const findOptimalPath = async () => {
+    if (!map || !startPoint || !endPoint) return;
+    
+    setIsLoadingPath(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/api/route-optimization/find-path`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          mapId: map.id,
+          startX: startPoint.x,
+          startY: startPoint.y,
+          endX: endPoint.x,
+          endY: endPoint.y,
+          algorithm: selectedAlgorithm,
+          simulationParams: simulationParams
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to find optimal path');
+      }
+      
+      const pathData = await response.json();
+      setOptimalPath(pathData);
+      setPathComparison(null); // Clear any comparison data
+      setShowPathComparison(false);
+    } catch (error) {
+      console.error('Error finding optimal path:', error);
+      setError('Failed to find optimal path');
+    } finally {
+      setIsLoadingPath(false);
+      setIsSelectingPoints(false);
+    }
+  };
+  
+  const comparePathAlgorithms = async () => {
+    if (!map || !startPoint || !endPoint) return;
+    
+    setIsLoadingPath(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/api/route-optimization/compare-paths`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          mapId: map.id,
+          startX: startPoint.x,
+          startY: startPoint.y,
+          endX: endPoint.x,
+          endY: endPoint.y,
+          simulationParams: simulationParams
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to compare paths');
+      }
+      
+      const comparisonData = await response.json();
+      setPathComparison(comparisonData);
+      setOptimalPath(null); // Clear the single path data
+      setShowPathComparison(true);
+    } catch (error) {
+      console.error('Error comparing paths:', error);
+      setError('Failed to compare path algorithms');
+    } finally {
+      setIsLoadingPath(false);
+      setIsSelectingPoints(false);
+    }
+  };
+  
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isSelectingPoints || !canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    if (!startPoint) {
+      setStartPoint({ x, y });
+    } else if (!endPoint) {
+      setEndPoint({ x, y });
+      // Automatically find path when both points are selected
+      setTimeout(() => {
+        if (showPathComparison) {
+          comparePathAlgorithms();
+        } else {
+          findOptimalPath();
+        }
+      }, 100);
+    }
+  };
+  
+  const resetPathfinding = () => {
+    setStartPoint(null);
+    setEndPoint(null);
+    setOptimalPath(null);
+    setPathComparison(null);
+    setIsSelectingPoints(false);
+    setShowPathComparison(false);
+  };
+  
+  const startPathSelection = () => {
+    resetPathfinding();
+    setIsSelectingPoints(true);
+  };
+
   const animateVehicles = () => {
     if (!map || !image || !canvasRef.current) {
       animationRef.current = requestAnimationFrame(animateVehicles);
@@ -229,6 +380,29 @@ const ViewMapPage: React.FC = () => {
       ctx.lineTo(endX, endY);
       ctx.stroke();
     });
+
+    // Draw the optimal path if available
+    if (optimalPath && optimalPath.roadPath.length > 0) {
+      drawOptimalPath(ctx, optimalPath, "#ff9900", 5);
+    }
+
+    // Draw comparison paths if enabled
+    if (showPathComparison && pathComparison) {
+      if (pathComparison.dijkstra) {
+        drawOptimalPath(ctx, pathComparison.dijkstra, "#ff5722", 4); // Orange for Dijkstra
+      }
+      if (pathComparison.astar) {
+        drawOptimalPath(ctx, pathComparison.astar, "#8bc34a", 3); // Light green for A*
+      }
+    }
+    
+    // Draw start and end points if selecting or path is shown
+    if (startPoint) {
+      drawPathPoint(ctx, startPoint.x, startPoint.y, "#2196f3"); // Blue for start
+    }
+    if (endPoint) {
+      drawPathPoint(ctx, endPoint.x, endPoint.y, "#f44336"); // Red for end
+    }
 
     // Group vehicles by road for collision detection
     const vehiclesByRoad = vehicles.reduce((acc, vehicle) => {
@@ -475,153 +649,506 @@ const ViewMapPage: React.FC = () => {
       case "HIGHWAY":
         return 8;
       case "NORMAL":
-        return 5;
+        return 6;
       case "RESIDENTIAL":
-        return 3;
+        return 4;
       default:
-        return 5;
+        return 6;
     }
   };
 
   const getRoadColor = (density: string): string => {
     switch (density) {
       case "LOW":
-        return "rgba(0, 255, 0, 0.5)"; // Green
+        return "#4caf50"; // Green
       case "MEDIUM":
-        return "rgba(255, 255, 0, 0.5)"; // Yellow
+        return "#ffc107"; // Yellow
       case "HIGH":
-        return "rgba(255, 165, 0, 0.5)"; // Orange
+        return "#ff9800"; // Orange
       case "CONGESTED":
-        return "rgba(255, 0, 0, 0.5)"; // Red
+        return "#f44336"; // Red
       default:
-        return "rgba(0, 255, 0, 0.5)";
+        return "#9e9e9e"; // Gray
     }
   };
 
   const toggleSimulation = () => {
-    setIsSimulationRunning((prev) => !prev);
+    setIsSimulationRunning(!isSimulationRunning);
   };
 
   const changeSimulationSpeed = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSimulationSpeed(parseFloat(e.target.value));
   };
+  
+  const handleSimulationParamChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setSimulationParams(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Format time in minutes for display
+  const formatTime = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    
+    if (hours === 0) {
+      return `${mins} min`;
+    }
+    
+    return `${hours} hr ${mins} min`;
+  };
+
+  // Draw optimal path on the canvas
+  const drawOptimalPath = (
+    ctx: CanvasRenderingContext2D, 
+    path: OptimalPath, 
+    color: string,
+    lineWidth: number
+  ) => {
+    if (!path.roadPath || path.roadPath.length === 0) return;
+    
+    ctx.save();
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = color;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    
+    // Draw an outline around the path for better visibility
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 5;
+    
+    ctx.beginPath();
+    
+    // Start with the first point
+    const firstRoad = path.roadPath[0];
+    ctx.moveTo(firstRoad.startX, firstRoad.startY);
+    
+    // Connect all road segments
+    path.roadPath.forEach(road => {
+      ctx.lineTo(road.endX, road.endY);
+    });
+    
+    ctx.stroke();
+    
+    // Add arrow heads to show direction
+    for (let i = 0; i < path.roadPath.length; i += Math.max(1, Math.floor(path.roadPath.length / 5))) {
+      const road = path.roadPath[i];
+      const dx = road.endX - road.startX;
+      const dy = road.endY - road.startY;
+      const angle = Math.atan2(dy, dx);
+      
+      const mid = {
+        x: road.startX + dx * 0.6,
+        y: road.startY + dy * 0.6
+      };
+      
+      // Draw arrow
+      drawArrow(ctx, mid.x, mid.y, angle, color);
+    }
+    
+    ctx.restore();
+  };
+  
+  // Draw an arrow for path direction
+  const drawArrow = (
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    angle: number,
+    color: string
+  ) => {
+    const headLength = 15;
+    const headWidth = 8;
+    
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-headLength, -headWidth / 2);
+    ctx.lineTo(-headLength * 0.8, 0);
+    ctx.lineTo(-headLength, headWidth / 2);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.restore();
+  };
+  
+  // Draw a point marker (start/end)
+  const drawPathPoint = (
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    color: string
+  ) => {
+    const radius = 8;
+    
+    ctx.save();
+    
+    // Outer circle
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Inner circle
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Pulse effect
+    const pulseSize = radius * (1.5 + Math.sin(Date.now() / 200) * 0.3);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.arc(x, y, pulseSize, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    ctx.restore();
+  };
 
   return (
     <div className="container mx-auto px-4 py-6">
       {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="text-xl text-gray-500">Loading traffic map...</div>
+        <div className="flex justify-center items-center h-96">
+          <div className="text-xl text-gray-500">Loading map...</div>
         </div>
       ) : error ? (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
           {error}
         </div>
-      ) : map ? (
-        <div>
-          <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-            <h1 className="text-2xl font-bold mb-2">{map.name}</h1>
-            {map.description && (
-              <p className="text-gray-600 mb-4">{map.description}</p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-4 mb-4">
-              <button
-                onClick={toggleSimulation}
-                className={`px-4 py-2 rounded ${
-                  isSimulationRunning
-                    ? "bg-red-500 hover:bg-red-600 text-white"
-                    : "bg-green-500 hover:bg-green-600 text-white"
-                }`}
-              >
-                {isSimulationRunning ? "Pause Simulation" : "Start Simulation"}
-              </button>
-
-              <div className="flex items-center">
-                <span className="mr-2">Speed:</span>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="3"
-                  step="0.5"
-                  value={simulationSpeed}
-                  onChange={changeSimulationSpeed}
-                  className="w-32"
-                />
-                <span className="ml-2">{simulationSpeed}x</span>
-              </div>
-
-              <div className="ml-auto flex gap-4">
-                <div className="flex items-center">
-                  <div className="w-4 h-4 bg-[#00FF00] mr-2"></div>
-                  <span>Low Traffic</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-4 h-4 bg-[#FFFF00] mr-2"></div>
-                  <span>Medium Traffic</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-4 h-4 bg-[#FFA500] mr-2"></div>
-                  <span>High Traffic</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-4 h-4 bg-[#FF0000] mr-2"></div>
-                  <span>Congested</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gray-100 rounded-lg border border-gray-300 overflow-hidden">
-            <canvas
-              ref={canvasRef}
-              width={map.width}
-              height={map.height}
-              className="max-w-full h-auto"
-            />
-          </div>
-
-          <div className="mt-6 bg-white rounded-lg shadow-md p-4">
-            <h2 className="text-xl font-bold mb-4">Traffic Statistics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-gray-100 p-4 rounded">
-                <h3 className="font-medium text-gray-700">Total Roads</h3>
-                <p className="text-2xl font-bold">{map.trafficData.length}</p>
-              </div>
-              <div className="bg-gray-100 p-4 rounded">
-                <h3 className="font-medium text-gray-700">Total Vehicles</h3>
-                <p className="text-2xl font-bold">{vehicles.length}</p>
-              </div>
-              <div className="bg-gray-100 p-4 rounded">
-                <h3 className="font-medium text-gray-700">Average Speed</h3>
-                <p className="text-2xl font-bold">
-                  {vehicles.length > 0
-                    ? Math.round(
-                        (vehicles.reduce((sum, v) => sum + v.speed, 0) /
-                          vehicles.length) *
-                          10
-                      ) / 10
-                    : 0}
-                </p>
-              </div>
-              <div className="bg-gray-100 p-4 rounded">
-                <h3 className="font-medium text-gray-700">Congestion Level</h3>
-                <p className="text-2xl font-bold">
-                  {map.trafficData.filter((r) => r.density === "CONGESTED")
-                    .length > 0
-                    ? "High"
-                    : map.trafficData.filter((r) => r.density === "HIGH")
-                        .length > 0
-                    ? "Medium"
-                    : "Low"}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
       ) : (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-          No map selected. Please select a map to view traffic simulation.
-        </div>
+        <>
+          <div className="flex flex-col lg:flex-row gap-6">
+            <div className="lg:w-3/4">
+              <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h1 className="text-2xl font-bold">{map?.name}</h1>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={toggleSimulation}
+                      className={`px-4 py-2 rounded font-medium ${
+                        isSimulationRunning
+                          ? "bg-red-500 text-white hover:bg-red-600"
+                          : "bg-green-500 text-white hover:bg-green-600"
+                      }`}
+                    >
+                      {isSimulationRunning ? "Pause" : "Resume"}
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">Speed:</span>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="3"
+                        step="0.5"
+                        value={simulationSpeed}
+                        onChange={changeSimulationSpeed}
+                        className="w-24"
+                      />
+                      <span className="text-sm font-medium">{simulationSpeed}x</span>
+                    </div>
+                  </div>
+                </div>
+                {map?.description && (
+                  <p className="text-gray-600 mb-4">{map.description}</p>
+                )}
+                <div className="relative">
+                  <canvas
+                    ref={canvasRef}
+                    width={map?.width || 800}
+                    height={map?.height || 600}
+                    className="border border-gray-300 bg-gray-100 w-full h-auto"
+                    onClick={handleCanvasClick}
+                    style={{ cursor: isSelectingPoints ? 'crosshair' : 'default' }}
+                  />
+                  {isLoadingPath && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                      <div className="bg-white p-4 rounded-lg shadow-lg">
+                        <p className="text-gray-800">Calculating optimal path...</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:w-1/4">
+              <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+                <h2 className="text-lg font-bold mb-4">Optimal Path Finder</h2>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Algorithm
+                  </label>
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      onClick={() => {
+                        setSelectedAlgorithm("dijkstra");
+                        setShowPathComparison(false);
+                      }}
+                      className={`flex-1 py-2 px-3 rounded-md border ${
+                        selectedAlgorithm === "dijkstra" && !showPathComparison
+                          ? "bg-blue-100 border-blue-500 text-blue-700"
+                          : "bg-white border-gray-300"
+                      }`}
+                    >
+                      Dijkstra
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedAlgorithm("astar");
+                        setShowPathComparison(false);
+                      }}
+                      className={`flex-1 py-2 px-3 rounded-md border ${
+                        selectedAlgorithm === "astar" && !showPathComparison
+                          ? "bg-blue-100 border-blue-500 text-blue-700"
+                          : "bg-white border-gray-300"
+                      }`}
+                    >
+                      A* Algorithm
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowPathComparison(true);
+                    }}
+                    className={`w-full py-2 px-3 rounded-md border mb-4 ${
+                      showPathComparison
+                        ? "bg-blue-100 border-blue-500 text-blue-700"
+                        : "bg-white border-gray-300"
+                    }`}
+                  >
+                    Compare Both
+                  </button>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Conditions
+                  </label>
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        Time of Day
+                      </label>
+                      <select
+                        name="timeOfDay"
+                        value={simulationParams.timeOfDay}
+                        onChange={handleSimulationParamChange}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      >
+                        <option value="MORNING">Morning</option>
+                        <option value="AFTERNOON">Afternoon</option>
+                        <option value="EVENING">Evening</option>
+                        <option value="NIGHT">Night</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        Day Type
+                      </label>
+                      <select
+                        name="dayType"
+                        value={simulationParams.dayType}
+                        onChange={handleSimulationParamChange}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      >
+                        <option value="WEEKDAY">Weekday</option>
+                        <option value="WEEKEND">Weekend</option>
+                        <option value="HOLIDAY">Holiday</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        Weather
+                      </label>
+                      <select
+                        name="weatherCondition"
+                        value={simulationParams.weatherCondition}
+                        onChange={handleSimulationParamChange}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      >
+                        <option value="CLEAR">Clear</option>
+                        <option value="RAIN">Rain</option>
+                        <option value="SNOW">Snow</option>
+                        <option value="FOG">Fog</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        Routing Strategy
+                      </label>
+                      <select
+                        name="routingStrategy"
+                        value={simulationParams.routingStrategy}
+                        onChange={handleSimulationParamChange}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      >
+                        <option value="SHORTEST_PATH">Shortest Path</option>
+                        <option value="BALANCED">Balanced</option>
+                        <option value="AVOID_CONGESTION">Avoid Congestion</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={startPathSelection}
+                      className="flex-1 py-2 px-4 bg-green-500 text-white rounded-md hover:bg-green-600"
+                      disabled={isLoadingPath}
+                    >
+                      Find Route
+                    </button>
+                    <button
+                      onClick={resetPathfinding}
+                      className="py-2 px-4 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                      disabled={isLoadingPath || (!startPoint && !endPoint)}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  
+                  {isSelectingPoints && (
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-sm text-blue-800">
+                        {!startPoint 
+                          ? "Click on the map to set starting point" 
+                          : "Click on the map to set destination point"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Path Results */}
+                {optimalPath && !showPathComparison && (
+                  <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
+                    <h3 className="font-medium text-gray-800 mb-2">
+                      Route Using {optimalPath.algorithm === 'dijkstra' ? 'Dijkstra' : 'A*'} Algorithm
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="text-gray-600">Est. Travel Time:</div>
+                      <div className="font-medium text-right">{formatTime(optimalPath.estimatedTimeMinutes)}</div>
+                      
+                      <div className="text-gray-600">Distance:</div>
+                      <div className="font-medium text-right">{Math.round(optimalPath.totalWeight * 10) / 10} units</div>
+                      
+                      <div className="text-gray-600">Road Segments:</div>
+                      <div className="font-medium text-right">{optimalPath.roadPath.length}</div>
+                    </div>
+                  </div>
+                )}
+                
+                {showPathComparison && pathComparison && (
+                  <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
+                    <h3 className="font-medium text-gray-800 mb-2">Algorithm Comparison</h3>
+                    
+                    <div className="flex mb-2">
+                      <div className="w-1/3"></div>
+                      <div className="w-1/3 text-center text-sm font-medium text-orange-600">Dijkstra</div>
+                      <div className="w-1/3 text-center text-sm font-medium text-green-600">A*</div>
+                    </div>
+                    
+                    <div className="mb-1">
+                      <div className="text-xs text-gray-600 mb-1">Est. Travel Time:</div>
+                      <div className="flex">
+                        <div className="w-1/3 text-xs">Difference:</div>
+                        <div className="w-1/3 text-center font-medium">
+                          {pathComparison.dijkstra ? formatTime(pathComparison.dijkstra.estimatedTimeMinutes) : '-'}
+                        </div>
+                        <div className="w-1/3 text-center font-medium">
+                          {pathComparison.astar ? formatTime(pathComparison.astar.estimatedTimeMinutes) : '-'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-1">
+                      <div className="text-xs text-gray-600 mb-1">Distance:</div>
+                      <div className="flex">
+                        <div className="w-1/3 text-xs">Comparison:</div>
+                        <div className="w-1/3 text-center font-medium">
+                          {pathComparison.dijkstra ? `${Math.round(pathComparison.dijkstra.totalWeight * 10) / 10}` : '-'}
+                        </div>
+                        <div className="w-1/3 text-center font-medium">
+                          {pathComparison.astar ? `${Math.round(pathComparison.astar.totalWeight * 10) / 10}` : '-'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-1">
+                      <div className="text-xs text-gray-600 mb-1">Road Segments:</div>
+                      <div className="flex">
+                        <div className="w-1/3 text-xs">Count:</div>
+                        <div className="w-1/3 text-center font-medium">
+                          {pathComparison.dijkstra ? pathComparison.dijkstra.roadPath.length : '-'}
+                        </div>
+                        <div className="w-1/3 text-center font-medium">
+                          {pathComparison.astar ? pathComparison.astar.roadPath.length : '-'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600">
+                      <div className="flex items-center mb-1">
+                        <span className="w-3 h-3 inline-block bg-orange-500 mr-1 rounded-full"></span>
+                        <span>Dijkstra's Algorithm (orange path)</span>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="w-3 h-3 inline-block bg-green-500 mr-1 rounded-full"></span>
+                        <span>A* Algorithm (green path)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="bg-white rounded-lg shadow-md p-4">
+                <h2 className="text-lg font-bold mb-4">Traffic Density Legend</h2>
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <div
+                      className="w-6 h-6 mr-2"
+                      style={{ backgroundColor: getRoadColor("LOW") }}
+                    ></div>
+                    <span>Low Traffic</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div
+                      className="w-6 h-6 mr-2"
+                      style={{ backgroundColor: getRoadColor("MEDIUM") }}
+                    ></div>
+                    <span>Medium Traffic</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div
+                      className="w-6 h-6 mr-2"
+                      style={{ backgroundColor: getRoadColor("HIGH") }}
+                    ></div>
+                    <span>High Traffic</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div
+                      className="w-6 h-6 mr-2"
+                      style={{ backgroundColor: getRoadColor("CONGESTED") }}
+                    ></div>
+                    <span>Congested</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -12,6 +12,7 @@ import trafficStatsRouter from "./routes/trafficStats";
 import simulationRouter from "./routes/simulation";
 import routeSchedulingRouter from "./routes/routeScheduling";
 import trafficAnalyticsRouter from "./routes/trafficAnalytics";
+import routeOptimizationRouter from "./routes/routeOptimization";
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use("/api/traffic-stats", trafficStatsRouter);
 app.use("/api/simulation", simulationRouter);
 app.use("/api/route-scheduling", routeSchedulingRouter);
 app.use("/api/traffic-analytics", trafficAnalyticsRouter);
+app.use("/api/route-optimization", routeOptimizationRouter);
 
 // Serve Swagger documentation
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
