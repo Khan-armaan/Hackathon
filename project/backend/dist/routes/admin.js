@@ -16,8 +16,7 @@ exports.adminRouter = void 0;
 const express_1 = __importDefault(require("express"));
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const prisma_1 = __importDefault(require("../lib/prisma"));
 const SALT_ROUNDS = 10; // Number of salt rounds for bcrypt
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"; // Better to use environment variable
 exports.adminRouter = express_1.default.Router();
@@ -57,7 +56,7 @@ exports.adminRouter.post("/signup", (req, res) => __awaiter(void 0, void 0, void
     try {
         const { name, email, password } = req.body;
         // Check if admin already exist
-        const existingUser = yield prisma.users.findFirst({
+        const existingUser = yield prisma_1.default.users.findFirst({
             where: {
                 email: email,
             },
@@ -70,7 +69,7 @@ exports.adminRouter.post("/signup", (req, res) => __awaiter(void 0, void 0, void
         // Hash the password
         const hashedPassword = yield bcrypt_1.default.hash(password, SALT_ROUNDS);
         // Create new admin user with hashed password
-        const newAdmin = yield prisma.users.create({
+        const newAdmin = yield prisma_1.default.users.create({
             data: {
                 name,
                 email,
@@ -141,7 +140,7 @@ exports.adminRouter.post("/login", (req, res) => __awaiter(void 0, void 0, void 
     try {
         const { email, password } = req.body;
         // Find admin user by email
-        const admin = yield prisma.users.findFirst({
+        const admin = yield prisma_1.default.users.findFirst({
             where: {
                 email: email,
             },

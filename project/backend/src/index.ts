@@ -5,6 +5,7 @@ import swaggerUi from "swagger-ui-express";
 import { specs } from "./config/swagger";
 
 import { uploadRouter } from "./routes/upload";
+import { adminRouter } from "./routes/admin";
 import prisma from "./lib/prisma";
 
 const app = express();
@@ -25,6 +26,10 @@ app.use(express.json());
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
+
+// API Routes
+app.use("/api/admin", adminRouter);
+app.use("/api/upload", uploadRouter);
 
 // Serve Swagger documentation
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));

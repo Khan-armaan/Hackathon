@@ -2,9 +2,8 @@ import express from "express";
 
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
+import prisma from "../lib/prisma";
 
-const prisma = new PrismaClient();
 const SALT_ROUNDS = 10; // Number of salt rounds for bcrypt
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"; // Better to use environment variable
 export const adminRouter = express.Router();
