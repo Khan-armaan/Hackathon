@@ -20,6 +20,7 @@ interface TrafficStats {
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<AdminUser | null>(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [trafficStats] = useState<TrafficStats>({
     totalMaps: 3,
     activeMaps: 1,
@@ -31,14 +32,10 @@ const AdminDashboard = () => {
   const [isSimulationRunning, setIsSimulationRunning] = useState(false);
 
   useEffect(() => {
-    // Get the user from localStorage
     const storedUser = localStorage.getItem("admin_user");
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
-    
-    // In a real implementation, we would fetch actual traffic stats here
-    // fetchTrafficStats();
   }, []);
 
   const handleLogout = () => {
@@ -48,93 +45,136 @@ const AdminDashboard = () => {
 
   const handleStartSimulation = () => {
     setIsSimulationRunning(true);
-    // Here you would trigger the actual simulation to start
   };
 
   const handleStopSimulation = () => {
     setIsSimulationRunning(false);
-    // Here you would stop the actual simulation
   };
 
   const getCongestionColor = (level: string): string => {
     switch(level) {
-      case "LOW": return "text-green-600";
-      case "MEDIUM": return "text-yellow-600";
-      case "HIGH": return "text-orange-600";
-      case "CRITICAL": return "text-red-600";
-      default: return "text-gray-600";
+      case "LOW": return "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-600/20";
+      case "MEDIUM": return "bg-amber-100 text-amber-800 ring-1 ring-amber-600/20";
+      case "HIGH": return "bg-rose-100 text-rose-800 ring-1 ring-rose-600/20";
+      case "CRITICAL": return "bg-red-100 text-red-800 ring-1 ring-red-600/20";
+      default: return "bg-gray-100 text-gray-800 ring-1 ring-gray-600/20";
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Kachi Dham Traffic Management System</h1>
-          <div className="flex items-center">
-            {user && (
-              <span className="mr-4 text-gray-600">Welcome, {user.name}</span>
-            )}
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-            >
-              Logout
-            </button>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Header */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+                Kachi Dham Traffic Management
+              </h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="relative">
+                <button
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold flex items-center justify-center hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  {user?.name.charAt(0).toUpperCase()}
+                </button>
+                {showProfileMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 ring-1 ring-black ring-opacity-5">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                      <p className="text-xs text-gray-500">{user?.email}</p>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Actions */}
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Link 
-              to="/admin/maps" 
-              className="flex items-center justify-center bg-blue-50 hover:bg-blue-100 p-4 rounded-lg transition"
-            >
-              <span>Manage Maps</span>
-            </Link>
-            <Link 
-              to="/admin/maps/add" 
-              className="flex items-center justify-center bg-green-50 hover:bg-green-100 p-4 rounded-lg transition"
-            >
-              <span>Add New Map</span>
-            </Link>
-            <Link 
-              to="/admin/events" 
-              className="flex items-center justify-center bg-purple-50 hover:bg-purple-100 p-4 rounded-lg transition"
-            >
-              <span>Manage Events</span>
-            </Link>
-            <Link 
-              to="/admin/simulation" 
-              className="flex items-center justify-center bg-orange-50 hover:bg-orange-100 p-4 rounded-lg transition"
-            >
-              <span>Advanced Simulation</span>
-            </Link>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <Link 
+            to="/admin/maps" 
+            className="bg-white p-6 rounded-xl shadow-sm hover:bg-blue-50 transition-all duration-200 transform hover:-translate-y-1 border border-gray-100"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+              </div>
+              <span className="font-medium text-blue-600">Manage Maps</span>
+            </div>
+          </Link>
+          <Link 
+            to="/admin/maps/add" 
+            className="bg-white p-6 rounded-xl shadow-sm hover:bg-green-50 transition-all duration-200 transform hover:-translate-y-1 border border-gray-100"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-green-50 rounded-lg">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              </div>
+              <span className="font-medium text-green-600">Add New Map</span>
+            </div>
+          </Link>
+          <Link 
+            to="/admin/events" 
+            className="bg-white p-6 rounded-xl shadow-sm hover:bg-purple-50 transition-all duration-200 transform hover:-translate-y-1 border border-gray-100"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-purple-50 rounded-lg">
+                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <span className="font-medium text-purple-600">Manage Events</span>
+            </div>
+          </Link>
+          <Link 
+            to="/admin/simulation" 
+            className="bg-white p-6 rounded-xl shadow-sm hover:bg-orange-50 transition-all duration-200 transform hover:-translate-y-1 border border-gray-100"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-orange-50 rounded-lg">
+                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <span className="font-medium text-orange-600">Advanced Simulation</span>
+            </div>
+          </Link>
         </div>
 
         {/* Current Traffic Status */}
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Current Traffic Status</h2>
-            <div className="flex items-center">
-              <span className="mr-2">Live Simulation:</span>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Current Traffic Status</h2>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-500">Live Simulation:</span>
               {isSimulationRunning ? (
                 <button 
                   onClick={handleStopSimulation}
-                  className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 flex items-center"
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center space-x-2"
                 >
-                  <span className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></span>
-                  Stop
+                  <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                  <span>Stop</span>
                 </button>
               ) : (
                 <button 
                   onClick={handleStartSimulation}
-                  className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
                 >
                   Start
                 </button>
@@ -143,39 +183,33 @@ const AdminDashboard = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-blue-50 p-4 rounded-lg shadow-sm">
-              <div className="flex justify-between">
-                <h3 className="font-medium text-blue-800">Total Vehicles</h3>
-              </div>
-              <p className="text-blue-600 text-2xl font-bold">{trafficStats.totalVehicles.toLocaleString()}</p>
-              <p className="text-blue-500 text-sm">Current vehicle count in Kachi Dham area</p>
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl">
+              <h3 className="font-medium text-blue-800 mb-2">Total Vehicles</h3>
+              <p className="text-3xl font-bold text-blue-600">{trafficStats.totalVehicles.toLocaleString()}</p>
+              <p className="text-sm text-blue-500 mt-1">Current vehicle count in Kachi Dham area</p>
             </div>
 
-            <div className="bg-green-50 p-4 rounded-lg shadow-sm">
-              <div className="flex justify-between">
-                <h3 className="font-medium text-green-800">Peak Hours</h3>
-              </div>
-              <div className="mt-2">
+            <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl">
+              <h3 className="font-medium text-green-800 mb-2">Peak Hours</h3>
+              <div className="space-y-2">
                 {trafficStats.peakHours.map((hour, index) => (
-                  <span key={index} className="inline-block bg-green-100 text-green-800 rounded px-2 py-1 text-sm mr-2 mb-2">
+                  <span key={index} className="inline-block bg-green-100 text-green-800 rounded-lg px-3 py-1 text-sm">
                     {hour}
                   </span>
                 ))}
               </div>
             </div>
 
-            <div className="bg-orange-50 p-4 rounded-lg shadow-sm">
-              <div className="flex justify-between">
-                <h3 className="font-medium text-orange-800">Congestion Level</h3>
-              </div>
-              <p className={`text-2xl font-bold ${getCongestionColor(trafficStats.congestionLevel)}`}>
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl">
+              <h3 className="font-medium text-orange-800 mb-2">Congestion Level</h3>
+              <p className={`text-3xl font-bold ${getCongestionColor(trafficStats.congestionLevel)}`}>
                 {trafficStats.congestionLevel}
               </p>
-              <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                <div className={`h-2.5 rounded-full ${
-                  trafficStats.congestionLevel === "LOW" ? "bg-green-500 w-1/4" :
-                  trafficStats.congestionLevel === "MEDIUM" ? "bg-yellow-500 w-2/4" :
-                  trafficStats.congestionLevel === "HIGH" ? "bg-orange-500 w-3/4" :
+              <div className="w-full bg-gray-200 rounded-full h-2.5 mt-3">
+                <div className={`h-2.5 rounded-full transition-all duration-500 ${
+                  trafficStats.congestionLevel === "LOW" ? "bg-emerald-500 w-1/4" :
+                  trafficStats.congestionLevel === "MEDIUM" ? "bg-amber-500 w-2/4" :
+                  trafficStats.congestionLevel === "HIGH" ? "bg-rose-500 w-3/4" :
                   "bg-red-500 w-full"
                 }`}></div>
               </div>
@@ -185,46 +219,45 @@ const AdminDashboard = () => {
 
         {/* Traffic Analytics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white shadow rounded-lg p-6 col-span-2">
-            <h2 className="text-xl font-semibold mb-4">Traffic Flow Overview</h2>
-            <div className="bg-gray-100 rounded-lg p-4 h-64 flex items-center justify-center">
-              {/* In a real implementation, this would be a chart or map visualization */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 col-span-2">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Traffic Flow Overview</h2>
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 h-64 flex items-center justify-center">
               <p className="text-gray-500">Traffic flow visualization would be displayed here</p>
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-4">
-              <div className="bg-blue-50 p-3 rounded">
+            <div className="mt-6 grid grid-cols-3 gap-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-blue-800">Entry Point A</h4>
-                <p className="text-xl font-semibold text-blue-600">187 <span className="text-sm font-normal">vehicles/hr</span></p>
+                <p className="text-2xl font-semibold text-blue-600">187 <span className="text-sm font-normal">vehicles/hr</span></p>
               </div>
-              <div className="bg-green-50 p-3 rounded">
+              <div className="bg-green-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-green-800">Entry Point B</h4>
-                <p className="text-xl font-semibold text-green-600">143 <span className="text-sm font-normal">vehicles/hr</span></p>
+                <p className="text-2xl font-semibold text-green-600">143 <span className="text-sm font-normal">vehicles/hr</span></p>
               </div>
-              <div className="bg-purple-50 p-3 rounded">
+              <div className="bg-purple-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-purple-800">Exit Point</h4>
-                <p className="text-xl font-semibold text-purple-600">167 <span className="text-sm font-normal">vehicles/hr</span></p>
+                <p className="text-2xl font-semibold text-purple-600">167 <span className="text-sm font-normal">vehicles/hr</span></p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Upcoming Events</h2>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Upcoming Events</h2>
             <div className="space-y-4">
-              <div className="border-l-4 border-orange-500 pl-3">
-                <p className="font-semibold">Festival Celebration</p>
-                <p className="text-sm text-gray-600">Today, 6:00 PM - 10:00 PM</p>
-                <div className="mt-1 text-xs px-2 py-1 bg-orange-100 text-orange-800 rounded inline-block">
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4">
+                <p className="font-semibold text-orange-800">Festival Celebration</p>
+                <p className="text-sm text-orange-600">Today, 6:00 PM - 10:00 PM</p>
+                <div className="mt-2 inline-block px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs">
                   High Impact
                 </div>
               </div>
-              <div className="border-l-4 border-yellow-500 pl-3">
-                <p className="font-semibold">Market Day</p>
-                <p className="text-sm text-gray-600">Tomorrow, 8:00 AM - 2:00 PM</p>
-                <div className="mt-1 text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded inline-block">
+              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-4">
+                <p className="font-semibold text-yellow-800">Market Day</p>
+                <p className="text-sm text-yellow-600">Tomorrow, 8:00 AM - 2:00 PM</p>
+                <div className="mt-2 inline-block px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">
                   Medium Impact
                 </div>
               </div>
-              <Link to="/admin/events" className="block text-blue-600 hover:underline text-sm mt-4">
+              <Link to="/admin/events" className="block text-blue-600 hover:text-blue-700 text-sm mt-4 transition-colors">
                 View all events →
               </Link>
             </div>
@@ -232,39 +265,39 @@ const AdminDashboard = () => {
         </div>
 
         {/* Recommended Actions */}
-        <div className="bg-white shadow rounded-lg p-6 mt-6">
-          <h2 className="text-xl font-semibold mb-4">Recommended Actions</h2>
-          <ul className="space-y-3">
-            <li className="flex items-start">
-              <span className="bg-red-100 text-red-800 rounded-full p-1 mr-2 mt-0.5">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mt-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recommended Actions</h2>
+          <ul className="space-y-4">
+            <li className="flex items-start group">
+              <span className="flex-shrink-0 p-2 bg-red-100 rounded-lg mr-3 group-hover:bg-red-200 transition-colors">
+                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </span>
               <div>
-                <p className="font-medium">Implement one-way traffic flow on North Road</p>
+                <p className="font-medium text-gray-900 group-hover:text-red-600 transition-colors">Implement one-way traffic flow on North Road</p>
                 <p className="text-sm text-gray-600">Heavy congestion detected, recommended during 5:00 PM - 7:00 PM</p>
               </div>
             </li>
-            <li className="flex items-start">
-              <span className="bg-yellow-100 text-yellow-800 rounded-full p-1 mr-2 mt-0.5">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            <li className="flex items-start group">
+              <span className="flex-shrink-0 p-2 bg-yellow-100 rounded-lg mr-3 group-hover:bg-yellow-200 transition-colors">
+                <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </span>
               <div>
-                <p className="font-medium">Add temporary traffic controllers at Junction B</p>
+                <p className="font-medium text-gray-900 group-hover:text-yellow-600 transition-colors">Add temporary traffic controllers at Junction B</p>
                 <p className="text-sm text-gray-600">Bottleneck identified during market hours</p>
               </div>
             </li>
-            <li className="flex items-start">
-              <span className="bg-green-100 text-green-800 rounded-full p-1 mr-2 mt-0.5">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            <li className="flex items-start group">
+              <span className="flex-shrink-0 p-2 bg-green-100 rounded-lg mr-3 group-hover:bg-green-200 transition-colors">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </span>
               <div>
-                <p className="font-medium">Restrict large vehicle entry during festival hours</p>
+                <p className="font-medium text-gray-900 group-hover:text-green-600 transition-colors">Restrict large vehicle entry during festival hours</p>
                 <p className="text-sm text-gray-600">Simulation shows 30% congestion reduction</p>
               </div>
             </li>

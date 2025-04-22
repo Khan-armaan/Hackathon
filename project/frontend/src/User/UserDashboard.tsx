@@ -45,154 +45,217 @@ const UserDashboard: React.FC = () => {
 
   const getCongestionColor = (level: string) => {
     switch (level) {
-      case "LOW": return "bg-green-100 text-green-800";
-      case "MEDIUM": return "bg-yellow-100 text-yellow-800";
-      case "HIGH": return "bg-orange-100 text-orange-800";
-      case "SEVERE": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "LOW": return "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-600/20";
+      case "MEDIUM": return "bg-amber-100 text-amber-800 ring-1 ring-amber-600/20";
+      case "HIGH": return "bg-rose-100 text-rose-800 ring-1 ring-rose-600/20";
+      case "SEVERE": return "bg-red-100 text-red-800 ring-1 ring-red-600/20";
+      default: return "bg-gray-100 text-gray-800 ring-1 ring-gray-600/20";
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h1 className="text-2xl font-bold mb-6">Kachi Dham Traffic Dashboard</h1>
-        
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-          <h2 className="text-lg font-semibold text-green-800 mb-2">Welcome to the Kachi Dham Traffic Information System</h2>
-          <p className="text-gray-700">
-            This dashboard provides real-time traffic information for Kachi Dham area. 
-            Plan your visit to avoid congestion and reduce waiting times.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header Section */}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden transform transition-all hover:shadow-xl">
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-12">
+            <h1 className="text-4xl font-bold text-white mb-4 tracking-tight">Kachi Dham Traffic Dashboard</h1>
+            <p className="text-blue-100 max-w-3xl text-lg">
+              Real-time traffic information system for Kachi Dham area. 
+              Plan your visit efficiently and avoid congestion.
+            </p>
+          </div>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-blue-50 p-4 rounded-lg shadow-sm">
-            <h3 className="font-medium text-blue-800 mb-2">Current Visitors</h3>
-            <p className="text-blue-600 text-2xl font-bold">2,847</p>
-            <p className="text-blue-500 text-sm">Across all Kachi Dham areas</p>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Current Visitors</h3>
+              <span className="p-2 bg-blue-50 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </span>
+            </div>
+            <p className="text-4xl font-bold text-gray-900">2,847</p>
+            <p className="text-sm text-gray-500 mt-1">Across all areas</p>
           </div>
 
-          <div className="bg-purple-50 p-4 rounded-lg shadow-sm">
-            <h3 className="font-medium text-purple-800 mb-2">Today's Events</h3>
-            <p className="text-purple-600 text-2xl font-bold">2</p>
-            <p className="text-purple-500 text-sm">Market Day + Evening Prayer</p>
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Today's Events</h3>
+              <span className="p-2 bg-purple-50 rounded-lg">
+                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </span>
+            </div>
+            <p className="text-4xl font-bold text-gray-900">2</p>
+            <p className="text-sm text-gray-500 mt-1">Market Day + Evening Prayer</p>
           </div>
 
-          <div className="bg-orange-50 p-4 rounded-lg shadow-sm">
-            <h3 className="font-medium text-orange-800 mb-2">Overall Congestion</h3>
-            <p className="text-orange-600 text-2xl font-bold">Medium</p>
-            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-              <div className="bg-yellow-500 h-2.5 rounded-full w-1/2"></div>
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Overall Congestion</h3>
+              <span className="p-2 bg-amber-50 rounded-lg">
+                <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </span>
+            </div>
+            <p className="text-4xl font-bold text-gray-900">Medium</p>
+            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-3">
+              <div className="bg-amber-500 h-2.5 rounded-full w-1/2 transition-all duration-500"></div>
             </div>
           </div>
         </div>
-        
-        <h2 className="text-xl font-semibold mb-4">Current Traffic Conditions</h2>
-        
-        {isLoading ? (
-          <div className="flex justify-center items-center h-40">
-            <p className="text-gray-500">Loading traffic information...</p>
-          </div>
-        ) : (
-          <div className="bg-white border rounded-lg overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Traffic Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Est. Wait Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Recommended Entry
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Best Time to Visit
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {trafficInfo.map((info, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{info.location}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${getCongestionColor(info.congestionLevel)}`}>
-                        {info.congestionLevel}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{info.waitTime} minutes</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{info.entryPoint}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{info.bestTravelTime}</div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        
-        <div className="mt-6 flex justify-center">
-          <Link 
-            to="/user/maps" 
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            View Interactive Traffic Maps
-          </Link>
-        </div>
-      </div>
-      
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Travel Tips for Kachi Dham</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="border-l-4 border-blue-500 pl-4">
-            <h3 className="font-medium text-gray-800 mb-2">Best Times to Visit</h3>
-            <ul className="list-disc pl-5 text-gray-700 space-y-1">
-              <li>Early mornings (6:00 AM - 9:00 AM) typically have the least congestion</li>
-              <li>Weekday afternoons are generally less crowded than weekends</li>
-              <li>Avoid peak prayer times if visiting the temple</li>
-              <li>Market days (Saturdays) have higher traffic in the central area</li>
-            </ul>
+
+        {/* Traffic Conditions Table */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden transform transition-all hover:shadow-xl">
+          <div className="px-6 py-5 border-b border-gray-100">
+            <h2 className="text-2xl font-semibold text-gray-900">Current Traffic Conditions</h2>
           </div>
           
-          <div className="border-l-4 border-green-500 pl-4">
-            <h3 className="font-medium text-gray-800 mb-2">Parking Information</h3>
-            <ul className="list-disc pl-5 text-gray-700 space-y-1">
-              <li>North Gate parking area: 120 spaces (currently 80% full)</li>
-              <li>East Gate parking area: 75 spaces (currently 50% full)</li>
-              <li>West Gate parking area: 45 spaces (currently 30% full)</li>
-              <li>Consider using shuttle services from outer parking areas</li>
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wait Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entry Point</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Best Time</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {trafficInfo.map((info, index) => (
+                    <tr key={index} className="hover:bg-gray-50 transition-colors duration-200">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-medium text-gray-900">{info.location}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getCongestionColor(info.congestionLevel)}`}>
+                          {info.congestionLevel}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">
+                        {info.waitTime} minutes
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">
+                        {info.entryPoint}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">
+                        {info.bestTravelTime}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+            <Link
+              to="/user/maps"
+              className="inline-flex items-center justify-center px-6 py-3 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:-translate-y-0.5"
+            >
+              View Interactive Traffic Maps
+              <svg className="ml-2 -mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+
+        {/* Travel Tips Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 transform transition-all hover:shadow-xl">
+            <div className="flex items-center space-x-3 mb-6">
+              <span className="p-2 bg-blue-50 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </span>
+              <h3 className="text-xl font-semibold text-gray-900">Best Times to Visit</h3>
+            </div>
+            <ul className="space-y-4">
+              <li className="flex items-start group">
+                <span className="flex-shrink-0 h-2 w-2 mt-2 rounded-full bg-blue-500 group-hover:bg-blue-600 transition-colors"></span>
+                <span className="ml-3 text-gray-600 group-hover:text-gray-900 transition-colors">Early mornings (6:00 AM - 9:00 AM) typically have the least congestion</span>
+              </li>
+              <li className="flex items-start group">
+                <span className="flex-shrink-0 h-2 w-2 mt-2 rounded-full bg-blue-500 group-hover:bg-blue-600 transition-colors"></span>
+                <span className="ml-3 text-gray-600 group-hover:text-gray-900 transition-colors">Weekday afternoons are generally less crowded than weekends</span>
+              </li>
+              <li className="flex items-start group">
+                <span className="flex-shrink-0 h-2 w-2 mt-2 rounded-full bg-blue-500 group-hover:bg-blue-600 transition-colors"></span>
+                <span className="ml-3 text-gray-600 group-hover:text-gray-900 transition-colors">Avoid peak prayer times if visiting the temple</span>
+              </li>
+              <li className="flex items-start group">
+                <span className="flex-shrink-0 h-2 w-2 mt-2 rounded-full bg-blue-500 group-hover:bg-blue-600 transition-colors"></span>
+                <span className="ml-3 text-gray-600 group-hover:text-gray-900 transition-colors">Market days (Saturdays) have higher traffic in the central area</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 transform transition-all hover:shadow-xl">
+            <div className="flex items-center space-x-3 mb-6">
+              <span className="p-2 bg-green-50 rounded-lg">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+              </span>
+              <h3 className="text-xl font-semibold text-gray-900">Parking Information</h3>
+            </div>
+            <ul className="space-y-4">
+              <li className="flex items-start group">
+                <span className="flex-shrink-0 h-2 w-2 mt-2 rounded-full bg-green-500 group-hover:bg-green-600 transition-colors"></span>
+                <span className="ml-3 text-gray-600 group-hover:text-gray-900 transition-colors">North Gate parking area: 120 spaces (currently 80% full)</span>
+              </li>
+              <li className="flex items-start group">
+                <span className="flex-shrink-0 h-2 w-2 mt-2 rounded-full bg-green-500 group-hover:bg-green-600 transition-colors"></span>
+                <span className="ml-3 text-gray-600 group-hover:text-gray-900 transition-colors">East Gate parking area: 75 spaces (currently 50% full)</span>
+              </li>
+              <li className="flex items-start group">
+                <span className="flex-shrink-0 h-2 w-2 mt-2 rounded-full bg-green-500 group-hover:bg-green-600 transition-colors"></span>
+                <span className="ml-3 text-gray-600 group-hover:text-gray-900 transition-colors">West Gate parking area: 45 spaces (currently 30% full)</span>
+              </li>
+              <li className="flex items-start group">
+                <span className="flex-shrink-0 h-2 w-2 mt-2 rounded-full bg-green-500 group-hover:bg-green-600 transition-colors"></span>
+                <span className="ml-3 text-gray-600 group-hover:text-gray-900 transition-colors">Consider using shuttle services from outer parking areas</span>
+              </li>
             </ul>
           </div>
         </div>
-        
-        <div className="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-          <h3 className="font-medium text-yellow-800 mb-2">Upcoming Events Affecting Traffic</h3>
-          <div className="space-y-3">
-            <div>
-              <p className="font-medium">Festival Celebration</p>
-              <p className="text-sm text-gray-600">Tomorrow, 6:00 PM - 10:00 PM</p>
-              <p className="text-sm text-gray-700 mt-1">
+
+        {/* Upcoming Events Section */}
+        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl shadow-lg border border-yellow-100 p-6 transform transition-all hover:shadow-xl">
+          <div className="flex items-center space-x-3 mb-6">
+            <span className="p-2 bg-yellow-100 rounded-lg">
+              <svg className="w-6 h-6 text-yellow-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </span>
+            <h3 className="text-xl font-semibold text-gray-900">Upcoming Events Affecting Traffic</h3>
+          </div>
+          <div className="space-y-6">
+            <div className="bg-white bg-opacity-60 rounded-lg p-4 transform transition-all hover:bg-opacity-80">
+              <h4 className="font-semibold text-gray-900">Festival Celebration</h4>
+              <p className="text-sm text-gray-600 mt-1">Tomorrow, 6:00 PM - 10:00 PM</p>
+              <p className="text-sm text-gray-700 mt-2">
                 Expected to increase congestion by 60%. Consider visiting before 3:00 PM.
               </p>
             </div>
-            
-            <div>
-              <p className="font-medium">Weekly Market Day</p>
-              <p className="text-sm text-gray-600">Saturday, 8:00 AM - 2:00 PM</p>
-              <p className="text-sm text-gray-700 mt-1">
+            <div className="bg-white bg-opacity-60 rounded-lg p-4 transform transition-all hover:bg-opacity-80">
+              <h4 className="font-semibold text-gray-900">Weekly Market Day</h4>
+              <p className="text-sm text-gray-600 mt-1">Saturday, 8:00 AM - 2:00 PM</p>
+              <p className="text-sm text-gray-700 mt-2">
                 Market area will have heavy congestion. North route recommended for temple visits.
               </p>
             </div>
