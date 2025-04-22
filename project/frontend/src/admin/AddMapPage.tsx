@@ -114,27 +114,54 @@ const AddMapPage: React.FC = () => {
     });
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const file = files[0];
-    const reader = new FileReader();
-    reader.onload = (event) => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      // Create a FormData object to send the file
+      const formData = new FormData();
+      formData.append("image", file);
+
+      // Send the file to the upload endpoint
+      const response = await fetch(`${API_URL}/api/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload image");
+      }
+
+      const data = await response.json();
+      
+      // Load the image to get dimensions
       const img = new Image();
       img.onload = () => {
         setImage(img);
         setMapData({
           ...mapData,
-          imageUrl: event.target?.result as string,
+          imageUrl: data.url,
           width: img.width,
           height: img.height,
         });
         drawCanvas(img, trafficData);
+        setIsLoading(false);
       };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+      img.onerror = () => {
+        setError("Failed to load the uploaded image");
+        setIsLoading(false);
+      };
+      img.src = data.url;
+    } catch (error) {
+      console.error("Upload error:", error);
+      setError("Failed to upload image. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   const drawCanvas = (img: HTMLImageElement, roads: TrafficData[]) => {
@@ -510,17 +537,60 @@ const AddMapPage: React.FC = () => {
 
           <div className="mb-4">
             <label className="block text-gray-700 mb-2">Map Image*</label>
+            {isLoading && mapData.imageUrl === "" ? (
+              <div className="border-2 border-dashed border-gray-300 rounded p-4 text-center">
+                <div className="flex flex-col items-center justify-center">
+                  <svg className="animate-spin h-6 w-6 text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="text-blue-500">Uploading image...</span>
+                </div>
+              </div>
+            ) : mapData.imageUrl ? (
+              <div className="relative border rounded overflow-hidden mb-2">
+                <img 
+                  src={mapData.imageUrl} 
+                  alt="Map Preview" 
+                  className="w-full h-48 object-cover"
+                />
+                <button
+                  onClick={() => {
+                    setMapData({...mapData, imageUrl: ""});
+                    setImage(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1"
+                  title="Remove image"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <div 
+                className="border-2 border-dashed border-gray-300 rounded p-4 text-center cursor-pointer hover:bg-gray-50 transition"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <div className="flex flex-col items-center justify-center">
+                  <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-sm text-gray-500">Click to select a map image</p>
+                  <p className="text-xs text-gray-400 mt-1">or drag and drop</p>
+                </div>
+              </div>
+            )}
             <input
               type="file"
               ref={fileInputRef}
               onChange={handleImageUpload}
               accept="image/*"
-              className="w-full"
+              className="hidden"
             />
-            {!image && !isLoading && (
-              <p className="text-sm text-gray-500 mt-2">
-                Upload a map image to start adding traffic data
-              </p>
+            {error && error.includes("image") && (
+              <p className="text-red-500 text-sm mt-1">{error}</p>
             )}
           </div>
 
@@ -597,10 +667,53 @@ const AddMapPage: React.FC = () => {
                 <strong>Instructions:</strong>
               </p>
               <ul className="list-disc pl-5">
-                <li>Click and drag on the map to create roads</li>
-                <li>Set road type and traffic density before drawing</li>
-                <li>Click on existing roads to select them for editing</li>
+                <li>First, upload a map image of your area</li>
+                <li>Select road type and traffic density before drawing</li>
+                <li>Click and drag on the map to create roads (longer roads work better)</li>
+                <li>Click on existing roads to select them for editing or deletion</li>
+                <li>Use the buttons to update road properties or delete roads</li>
+                <li>Click "Save Map" when you're done to save all changes</li>
               </ul>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-2 bg-blue-50 rounded border border-blue-200">
+                  <p className="font-semibold text-blue-700">Traffic Density Colors:</p>
+                  <div className="grid grid-cols-1 gap-1 mt-2">
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-[#00FF00] mr-2"></div>
+                      <span>Low Traffic</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-[#FFFF00] mr-2"></div>
+                      <span>Medium Traffic</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-[#FFA500] mr-2"></div>
+                      <span>High Traffic</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-[#FF0000] mr-2"></div>
+                      <span>Congested</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-2 bg-gray-50 rounded border border-gray-200">
+                  <p className="font-semibold text-gray-700">Road Width by Type:</p>
+                  <div className="grid grid-cols-1 gap-1 mt-2">
+                    <div className="flex items-center">
+                      <div className="h-2 w-8 bg-black mr-2"></div>
+                      <span>Highway</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="h-1.5 w-8 bg-black mr-2"></div>
+                      <span>Normal</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="h-1 w-8 bg-black mr-2"></div>
+                      <span>Residential</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
 
 import swaggerUi from "swagger-ui-express";
 import { specs } from "./config/swagger";
@@ -7,7 +8,7 @@ import { specs } from "./config/swagger";
 import { uploadRouter } from "./routes/upload";
 import { adminRouter } from "./routes/admin";
 import trafficMapRouter from "./routes/trafficMap";
-import prisma from "./lib/prisma";
+
 
 const app = express();
 
@@ -22,6 +23,8 @@ app.use(
 );
 
 app.use(express.json());
+
+
 
 // Basic health check endpoint
 app.get("/health", (req, res) => {

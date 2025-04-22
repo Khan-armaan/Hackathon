@@ -230,26 +230,76 @@ const ViewMapPage: React.FC = () => {
       ctx.stroke();
     });
 
+    // Group vehicles by road for collision detection
+    const vehiclesByRoad = vehicles.reduce((acc, vehicle) => {
+      if (!acc[vehicle.roadId]) {
+        acc[vehicle.roadId] = [];
+      }
+      acc[vehicle.roadId].push(vehicle);
+      return acc;
+    }, {} as Record<number, Vehicle[]>);
+
     // Update and draw vehicles
     const updatedVehicles = vehicles
       .map((vehicle) => {
-        // Calculate the vector from current position to target
+        // Get the road and its density
+        const road = map.trafficData.find((r) => r.id === vehicle.roadId);
+        if (!road) return null;
+        
+        // Adjust speed based on density and add some randomness
+        let speedModifier = 1;
+        switch (road.density) {
+          case "LOW":
+            speedModifier = 1 + Math.sin(Date.now() / 1000 + vehicle.id) * 0.1; // Small variation
+            break;
+          case "MEDIUM":
+            speedModifier = 0.7 + Math.sin(Date.now() / 1000 + vehicle.id) * 0.15; // More variation, slower
+            break;
+          case "HIGH":
+            speedModifier = 0.5 + Math.sin(Date.now() / 1000 + vehicle.id) * 0.2; // Even more variation, even slower
+            break;
+          case "CONGESTED":
+            speedModifier = 0.3 + Math.sin(Date.now() / 2000 + vehicle.id) * 0.25; // Most variation, slowest
+            break;
+        }
+
+        // Check for vehicles ahead to simulate car following behavior
+        const roadVehicles = vehiclesByRoad[vehicle.roadId] || [];
+        
+        // Calculate distance to target
         const dx = vehicle.targetX - vehicle.x;
         const dy = vehicle.targetY - vehicle.y;
-
-        // Calculate the distance to target
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distanceToTarget = Math.sqrt(dx * dx + dy * dy);
+        
+        // Calculate direction vector
+        const dirX = dx / (distanceToTarget || 1);
+        const dirY = dy / (distanceToTarget || 1);
+        
+        // Check for vehicles ahead to maintain spacing
+        const minSpacing = vehicle.size * 5; // Minimum space between vehicles
+        let shouldSlow = false;
+        
+        roadVehicles.forEach((otherVehicle) => {
+          if (otherVehicle.id !== vehicle.id) {
+            // Check if the other vehicle is ahead of this one (in the direction of travel)
+            const otherDx = otherVehicle.x - vehicle.x;
+            const otherDy = otherVehicle.y - vehicle.y;
+            const dotProduct = dirX * otherDx + dirY * otherDy;
+            
+            if (dotProduct > 0) { // Vehicle is ahead
+              const distanceBetween = Math.sqrt(otherDx * otherDx + otherDy * otherDy);
+              if (distanceBetween < minSpacing) {
+                shouldSlow = true;
+                // The closer the vehicle, the more we slow down
+                speedModifier *= Math.max(0.1, distanceBetween / minSpacing);
+              }
+            }
+          }
+        });
 
         // If the vehicle has reached its target
-        if (distance < vehicle.speed * simulationSpeed) {
-          // Find the road this vehicle is on
-          const road = map.trafficData.find((r) => r.id === vehicle.roadId);
-          if (!road) {
-            // Vehicle has no road, remove it
-            return null;
-          }
-
-          // Switch direction - go back to start point
+        if (distanceToTarget < vehicle.speed * simulationSpeed) {
+          // Switch direction - go back to start point or end point
           if (vehicle.targetX === road.endX && vehicle.targetY === road.endY) {
             return {
               ...vehicle,
@@ -263,7 +313,6 @@ const ViewMapPage: React.FC = () => {
               ),
             };
           } else {
-            // Switch to end point
             return {
               ...vehicle,
               x: road.startX,
@@ -278,13 +327,12 @@ const ViewMapPage: React.FC = () => {
           }
         }
 
-        // Normalize the direction vector
-        const normalizedDx = dx / distance;
-        const normalizedDy = dy / distance;
+        // Apply all the modifiers to get the final speed
+        const finalSpeed = vehicle.speed * speedModifier * simulationSpeed;
 
         // Move the vehicle
-        const newX = vehicle.x + normalizedDx * vehicle.speed * simulationSpeed;
-        const newY = vehicle.y + normalizedDy * vehicle.speed * simulationSpeed;
+        const newX = vehicle.x + dirX * finalSpeed;
+        const newY = vehicle.y + dirY * finalSpeed;
 
         return {
           ...vehicle,
@@ -304,7 +352,7 @@ const ViewMapPage: React.FC = () => {
   };
 
   const drawVehicle = (ctx: CanvasRenderingContext2D, vehicle: Vehicle) => {
-    const { x, y, size, color, direction } = vehicle;
+    const { x, y, size, color, direction, roadId } = vehicle;
 
     ctx.save();
 
@@ -312,15 +360,111 @@ const ViewMapPage: React.FC = () => {
     ctx.translate(x, y);
     ctx.rotate(direction);
 
-    // Draw a simple car shape
-    ctx.fillStyle = color;
+    // Draw shadow
+    ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+    ctx.fillRect(-size * 2.2, size * 0.8, size * 4.4, size * 0.6);
 
-    // Car body (rectangle)
-    ctx.fillRect(-size * 2, -size, size * 4, size * 2);
-
-    // Front window
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(size * 0.5, -size * 0.8, size, size * 1.6);
+    // Draw different vehicle types based on road type
+    const roadType = map?.trafficData.find(r => r.id === roadId)?.roadType || "NORMAL";
+    
+    if (roadType === "HIGHWAY") {
+      // Draw a more streamlined car (like a sports car or sedan)
+      
+      // Car body (main shape)
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(-size * 2, 0);  // back left
+      ctx.lineTo(-size * 2, -size * 0.8);  // back left top
+      ctx.lineTo(-size * 1, -size * 1.2);  // middle left top
+      ctx.lineTo(size * 1, -size * 1.2);   // middle right top
+      ctx.lineTo(size * 2, -size * 0.8);   // front right top
+      ctx.lineTo(size * 2, 0);            // front right bottom
+      ctx.closePath();
+      ctx.fill();
+      
+      // Windows
+      ctx.fillStyle = "#a8d1ff"; // light blue windows
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.9, -size * 0.8);
+      ctx.lineTo(-size * 0.5, -size * 1.1);
+      ctx.lineTo(size * 0.5, -size * 1.1);
+      ctx.lineTo(size * 1.5, -size * 0.8);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Wheels
+      ctx.fillStyle = "#333";
+      ctx.beginPath();
+      ctx.arc(-size, 0, size * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(size, 0, size * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Headlights
+      ctx.fillStyle = "#ffdd00";
+      ctx.beginPath();
+      ctx.arc(size * 1.9, -size * 0.3, size * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      
+    } else if (roadType === "RESIDENTIAL") {
+      // Draw a simple car (hatchback or compact)
+      
+      // Car body
+      ctx.fillStyle = color;
+      ctx.fillRect(-size * 1.5, -size, size * 3, size);
+      
+      // Roof
+      ctx.fillRect(-size * 0.8, -size * 1.8, size * 1.6, size * 0.8);
+      
+      // Windows
+      ctx.fillStyle = "#a8d1ff";
+      ctx.fillRect(-size * 0.7, -size * 1.7, size * 1.4, size * 0.6);
+      
+      // Wheels
+      ctx.fillStyle = "#333";
+      ctx.beginPath();
+      ctx.arc(-size * 0.8, 0, size * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(size * 0.8, 0, size * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Headlights
+      ctx.fillStyle = "#ffdd00";
+      ctx.beginPath();
+      ctx.arc(size * 1.4, -size * 0.5, size * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      
+    } else {
+      // NORMAL road - draw a standard car (SUV/sedan)
+      
+      // Car body
+      ctx.fillStyle = color;
+      ctx.fillRect(-size * 2, -size, size * 4, size);
+      
+      // Top part of car
+      ctx.fillRect(-size, -size * 1.8, size * 2, size * 0.8);
+      
+      // Windows
+      ctx.fillStyle = "#a8d1ff";
+      ctx.fillRect(-size * 0.9, -size * 1.7, size * 1.8, size * 0.6);
+      
+      // Wheels
+      ctx.fillStyle = "#333";
+      ctx.beginPath();
+      ctx.arc(-size, 0, size * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(size, 0, size * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Headlights
+      ctx.fillStyle = "#ffdd00";
+      ctx.beginPath();
+      ctx.arc(size * 1.9, -size * 0.5, size * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // Restore context
     ctx.restore();
