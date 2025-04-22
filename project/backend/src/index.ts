@@ -17,8 +17,8 @@ import routeOptimizationRouter from "./routes/routeOptimization";
 const app = express();
 
 // Get the client origin from environment variables
-const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
-
+//const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const clientOrigin = process.env.CLIENT_ORIGIN || "https://traffic.mybyte.store";
 // Configure CORS with environment variables
 app.use(
   cors({
@@ -48,7 +48,8 @@ app.use("/api/route-optimization", routeOptimizationRouter);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 
 // Use PORT from environment variables
-const PORT = process.env.PORT || 3000;
+//const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
