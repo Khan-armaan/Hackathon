@@ -273,15 +273,45 @@ exports.routeOptimizationRouter.post("/compare-paths", (req, res) => __awaiter(v
 }));
 // Helper function to find the closest node to given coordinates
 function findClosestNode(graph, x, y) {
+    if (!graph || !graph.nodes || graph.nodes.size === 0) {
+        console.error("Cannot find closest node: Graph is empty or invalid");
+        return null;
+    }
     let closestNodeId = null;
     let minDistance = Infinity;
+    // Ensure x and y are numbers
+    const targetX = Number(x);
+    const targetY = Number(y);
+    if (isNaN(targetX) || isNaN(targetY)) {
+        console.error(`Invalid coordinates: x=${x}, y=${y}`);
+        return null;
+    }
+    // Log the target coordinates for debugging
+    console.log(`Finding closest node to (${targetX}, ${targetY})`);
+    let closestNodes = [];
     graph.nodes.forEach((node, id) => {
-        const distance = Math.sqrt(Math.pow(node.x - x, 2) + Math.pow(node.y - y, 2));
+        // Ensure node coordinates are numbers
+        const nodeX = Number(node.x);
+        const nodeY = Number(node.y);
+        if (isNaN(nodeX) || isNaN(nodeY)) {
+            console.warn(`Node ${id} has invalid coordinates: (${node.x}, ${node.y})`);
+            return;
+        }
+        const distance = Math.sqrt(Math.pow(nodeX - targetX, 2) + Math.pow(nodeY - targetY, 2));
+        // Keep track of the closest 3 nodes for logging
+        closestNodes.push({ id, x: nodeX, y: nodeY, distance });
+        if (closestNodes.length > 3) {
+            closestNodes.sort((a, b) => a.distance - b.distance);
+            closestNodes = closestNodes.slice(0, 3);
+        }
         if (distance < minDistance) {
             minDistance = distance;
             closestNodeId = id;
         }
     });
+    // Log the closest nodes for debugging
+    console.log(`Closest nodes: ${JSON.stringify(closestNodes)}`);
+    console.log(`Selected node ${closestNodeId} at distance ${minDistance}`);
     return closestNodeId;
 }
 // Helper function to enhance path with road information

@@ -37,11 +37,14 @@ interface OptimalPath {
   coordinatePath: {x: number, y: number}[];
   totalWeight: number;
   estimatedTimeMinutes: number;
+  description: string;
 }
 
 interface PathComparison {
   dijkstra: OptimalPath | null;
   astar: OptimalPath | null;
+  trafficFlowWinner?: string;
+  timeDifference?: number;
 }
 
 interface TrafficMap {
@@ -99,15 +102,33 @@ const ViewMapPage: React.FC = () => {
   // Animation loop
   useEffect(() => {
     if (isSimulationRunning && map && image) {
+      // Clear any existing animation frame
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      
+      console.log("Starting animation loop");
       animationRef.current = requestAnimationFrame(animateVehicles);
     }
 
     return () => {
       if (animationRef.current) {
+        console.log("Cleaning up animation loop");
         cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
       }
     };
-  }, [isSimulationRunning, vehicles, map, image, optimalPath, pathComparison, showPathComparison]);
+  }, [
+    isSimulationRunning, 
+    map, 
+    image, 
+    startPoint, 
+    endPoint,
+    optimalPath, 
+    pathComparison, 
+    showPathComparison,
+    simulationSpeed
+  ]);
 
   const fetchMapData = async (mapId: number) => {
     try {
@@ -293,11 +314,81 @@ const ViewMapPage: React.FC = () => {
   };
 
   const findOptimalPath = async () => {
-    if (!map || !startPoint || !endPoint) return;
+    if (!map || !startPoint || !endPoint) {
+      console.error("Cannot find path: Missing map or start/end points");
+      setError("Cannot find optimal path: Missing required information");
+      return;
+    }
     
+    // Validate that start and end points have valid coordinates
+    if (isNaN(startPoint.x) || isNaN(startPoint.y) || isNaN(endPoint.x) || isNaN(endPoint.y)) {
+      console.error("Invalid coordinates:", startPoint, endPoint);
+      setError("Cannot find optimal path: Invalid coordinates");
+      return;
+    }
+    
+    console.log("Finding optimal path from", startPoint, "to", endPoint);
     setIsLoadingPath(true);
     
     try {
+      // First, get both paths for comparison
+      const comparisonResponse = await fetch(`${API_URL}/api/route-optimization/compare-paths`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          mapId: map.id,
+          startX: startPoint.x,
+          startY: startPoint.y,
+          endX: endPoint.x,
+          endY: endPoint.y,
+          simulationParams: simulationParams
+        })
+      });
+      
+      if (!comparisonResponse.ok) {
+        const errorText = await comparisonResponse.text();
+        console.error("Compare paths response error:", errorText);
+        throw new Error(`Failed to compare paths: ${errorText}`);
+      }
+      
+      const comparisonData = await comparisonResponse.json();
+      console.log("Comparison data:", comparisonData);
+      
+      // Store comparison data but don't show it yet
+      setPathComparison(comparisonData);
+      
+      // Determine which algorithm to use for the final optimal path
+      // This implements the "simple solution to traffic" concept from the video
+      let finalAlgorithm = selectedAlgorithm;
+      
+      // If both algorithms returned a path, we can compare and possibly choose the better one
+      if (comparisonData.dijkstra && comparisonData.astar) {
+        const dijkstraPath = comparisonData.dijkstra;
+        const astarPath = comparisonData.astar;
+        
+        // Count congestion points in each path
+        const dijkstraCongestion = countCongestionPoints(dijkstraPath);
+        const astarCongestion = countCongestionPoints(astarPath);
+        
+        // Count intersections in each path
+        const dijkstraIntersections = countIntersections(dijkstraPath);
+        const astarIntersections = countIntersections(astarPath);
+        
+        // Simulate the "traffic snake" - fewer intersections and congestion points is better
+        // This follows the video's concept that "more intersections equals more dis-coordination equals more traffic"
+        const dijkstraScore = dijkstraPath.totalWeight * (1 + 0.3 * dijkstraCongestion + 0.2 * dijkstraIntersections);
+        const astarScore = astarPath.totalWeight * (1 + 0.3 * astarCongestion + 0.2 * astarIntersections);
+        
+        // Choose the algorithm with the better score
+        finalAlgorithm = dijkstraScore <= astarScore ? "dijkstra" : "astar";
+        console.log(`Selected ${finalAlgorithm} based on scores: Dijkstra=${dijkstraScore}, A*=${astarScore}`);
+      } else {
+        console.log("Could not compare both algorithms, using selected algorithm:", finalAlgorithm);
+      }
+      
+      // Now get the optimal path with the chosen algorithm
       const response = await fetch(`${API_URL}/api/route-optimization/find-path`, {
         method: 'POST',
         headers: {
@@ -309,26 +400,72 @@ const ViewMapPage: React.FC = () => {
           startY: startPoint.y,
           endX: endPoint.x,
           endY: endPoint.y,
-          algorithm: selectedAlgorithm,
-          simulationParams: simulationParams
+          algorithm: finalAlgorithm,
+          simulationParams: {
+            ...simulationParams,
+            // If user selected avoid congestion, further enhance that preference
+            routingStrategy: simulationParams.routingStrategy === "AVOID_CONGESTION" 
+              ? "AVOID_CONGESTION" 
+              : finalAlgorithm === "astar" ? "BALANCED" : "SHORTEST_PATH"
+          }
         })
       });
       
       if (!response.ok) {
-        throw new Error('Failed to find optimal path');
+        const errorText = await response.text();
+        console.error("Find path response error:", errorText);
+        throw new Error(`Failed to find optimal path: ${errorText}`);
       }
       
       const pathData = await response.json();
+      console.log("Optimal path data:", pathData);
+      
+      // Validate that the path data contains valid roadPath
+      if (!pathData.roadPath || pathData.roadPath.length === 0) {
+        console.error("Received empty roadPath in path data");
+        throw new Error("No valid path found between the selected points");
+      }
+      
+      // Add a descriptive message about the chosen path
+      pathData.description = getPathDescription(pathData, finalAlgorithm);
+      
       setOptimalPath(pathData);
-      setPathComparison(null); // Clear any comparison data
       setShowPathComparison(false);
     } catch (error) {
       console.error('Error finding optimal path:', error);
-      setError('Failed to find optimal path');
+      setError(error instanceof Error ? error.message : 'Failed to find optimal path');
     } finally {
       setIsLoadingPath(false);
       setIsSelectingPoints(false);
     }
+  };
+  
+  // Generate a description of the path based on the algorithm and path characteristics
+  const getPathDescription = (path: OptimalPath, algorithm: string): string => {
+    const congestionPoints = countCongestionPoints(path);
+    const intersections = countIntersections(path);
+    
+    let description = `This route was calculated using the ${algorithm === 'dijkstra' ? 'Dijkstra' : 'A*'} algorithm. `;
+    
+    if (congestionPoints === 0) {
+      description += "It avoids all congested areas. ";
+    } else if (congestionPoints === 1) {
+      description += "It passes through 1 congested area. ";
+    } else {
+      description += `It passes through ${congestionPoints} congested areas. `;
+    }
+    
+    if (intersections <= 1) {
+      description += "With minimal intersections, this route minimizes the 'traffic snake' effect. ";
+    } else if (intersections <= 3) {
+      description += "This route has a few intersections where traffic flow might slow down. ";
+    } else {
+      description += "This route has several intersections which may create traffic snakes during peak hours. ";
+    }
+    
+    description += `Estimated travel time is ${formatTime(path.estimatedTimeMinutes)}.`;
+    
+    return description;
   };
   
   const comparePathAlgorithms = async () => {
@@ -357,6 +494,33 @@ const ViewMapPage: React.FC = () => {
       }
       
       const comparisonData = await response.json();
+      
+      // Calculate additional metrics for the comparison
+      if (comparisonData.dijkstra && comparisonData.astar) {
+        // Add traffic flow insights
+        comparisonData.dijkstra.congestionPoints = countCongestionPoints(comparisonData.dijkstra);
+        comparisonData.dijkstra.intersections = countIntersections(comparisonData.dijkstra);
+        
+        comparisonData.astar.congestionPoints = countCongestionPoints(comparisonData.astar);
+        comparisonData.astar.intersections = countIntersections(comparisonData.astar);
+        
+        // Analyze which algorithm is better for this scenario based on traffic flow theory
+        const dijkstraScore = comparisonData.dijkstra.totalWeight * 
+          (1 + 0.3 * comparisonData.dijkstra.congestionPoints + 0.2 * comparisonData.dijkstra.intersections);
+        
+        const astarScore = comparisonData.astar.totalWeight * 
+          (1 + 0.3 * comparisonData.astar.congestionPoints + 0.2 * comparisonData.astar.intersections);
+        
+        comparisonData.trafficFlowWinner = dijkstraScore <= astarScore ? "dijkstra" : "astar";
+        
+        // Calculate time difference
+        const timeDiff = Math.abs(
+          comparisonData.dijkstra.estimatedTimeMinutes - comparisonData.astar.estimatedTimeMinutes
+        );
+        
+        comparisonData.timeDifference = timeDiff;
+      }
+      
       setPathComparison(comparisonData);
       setOptimalPath(null); // Clear the single path data
       setShowPathComparison(true);
@@ -374,21 +538,35 @@ const ViewMapPage: React.FC = () => {
     
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    
+    // Account for canvas scaling by applying a scale factor
+    // This fixes the issue of coordinates not being accurately captured
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    // Calculate the actual coordinates on the canvas
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    console.log(`Canvas click at: (${x}, ${y})`);
     
     if (!startPoint) {
       setStartPoint({ x, y });
+      console.log(`Set start point: (${x}, ${y})`);
     } else if (!endPoint) {
       setEndPoint({ x, y });
+      console.log(`Set end point: (${x}, ${y})`);
+      
       // Automatically find path when both points are selected
+      // Increased timeout to ensure state is updated
       setTimeout(() => {
+        console.log("Finding path between:", startPoint, "and", { x, y });
         if (showPathComparison) {
           comparePathAlgorithms();
         } else {
           findOptimalPath();
         }
-      }, 100);
+      }, 300);
     }
   };
   
@@ -453,22 +631,30 @@ const ViewMapPage: React.FC = () => {
       ctx.stroke();
     });
 
+    // Debug path points if available
+    if (optimalPath && optimalPath.coordinatePath && optimalPath.coordinatePath.length > 0) {
+      console.log("Drawing optimal path with", optimalPath.coordinatePath.length, "points");
+    }
+
     // Draw the optimal path if available
-    if (optimalPath && optimalPath.roadPath.length > 0) {
+    if (optimalPath && optimalPath.roadPath && optimalPath.roadPath.length > 0) {
+      console.log("Drawing optimal path with roadPath length:", optimalPath.roadPath.length);
       drawOptimalPath(ctx, optimalPath, "#ff9900", 5);
     }
 
     // Draw comparison paths if enabled
     if (showPathComparison && pathComparison) {
-      if (pathComparison.dijkstra) {
+      if (pathComparison.dijkstra && pathComparison.dijkstra.roadPath && pathComparison.dijkstra.roadPath.length > 0) {
+        console.log("Drawing Dijkstra path with length:", pathComparison.dijkstra.roadPath.length);
         drawOptimalPath(ctx, pathComparison.dijkstra, "#ff5722", 4); // Orange for Dijkstra
       }
-      if (pathComparison.astar) {
+      if (pathComparison.astar && pathComparison.astar.roadPath && pathComparison.astar.roadPath.length > 0) {
+        console.log("Drawing A* path with length:", pathComparison.astar.roadPath.length);
         drawOptimalPath(ctx, pathComparison.astar, "#8bc34a", 3); // Light green for A*
       }
     }
     
-    // Draw start and end points if selecting or path is shown
+    // Always draw start and end points if available - improved visibility
     if (startPoint) {
       drawPathPoint(ctx, startPoint.x, startPoint.y, "#2196f3"); // Blue for start
     }
@@ -652,14 +838,11 @@ const ViewMapPage: React.FC = () => {
           direction: Math.atan2(dirY, dirX)
         };
       })
-      .filter(Boolean) as Vehicle[];
-
-    // Draw the vehicles
-    updatedVehicles.forEach((vehicle) => {
-      drawVehicle(ctx, vehicle);
-    });
+      .filter((vehicle): vehicle is Vehicle => vehicle !== null);
 
     setVehicles(updatedVehicles);
+
+    // Request next animation frame
     animationRef.current = requestAnimationFrame(animateVehicles);
   };
 
@@ -845,75 +1028,256 @@ const ViewMapPage: React.FC = () => {
     color: string,
     lineWidth: number
   ) => {
-    if (!path.roadPath || path.roadPath.length === 0) return;
+    if (!path.roadPath || path.roadPath.length === 0) {
+      console.error("Cannot draw path: Empty roadPath");
+      return;
+    }
+    
+    try {
+      ctx.save();
+      ctx.lineWidth = lineWidth;
+      ctx.strokeStyle = color;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      
+      // Draw an outline around the path for better visibility
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = 5;
+      
+      ctx.beginPath();
+      
+      // Start with the first point
+      const firstRoad = path.roadPath[0];
+      if (!firstRoad || firstRoad.startX === undefined || firstRoad.startY === undefined) {
+        console.error("Invalid first road in path:", firstRoad);
+        return;
+      }
+      
+      ctx.moveTo(firstRoad.startX, firstRoad.startY);
+      
+      // Draw a gradient path to show potential congestion areas
+      const gradient = createCongestionGradient(ctx, path);
+      if (gradient) {
+        ctx.strokeStyle = gradient;
+      }
+      
+      // For each road segment in the path
+      for (let i = 0; i < path.roadPath.length; i++) {
+        const road = path.roadPath[i];
+        if (!road || road.endX === undefined || road.endY === undefined) {
+          console.error("Invalid road at index", i, ":", road);
+          continue;
+        }
+        
+        // If the road has intermediate points, draw through those
+        if (road.points && road.points.length > 0) {
+          road.points.forEach(point => {
+            if (point && point.x !== undefined && point.y !== undefined) {
+              ctx.lineTo(point.x, point.y);
+            }
+          });
+        }
+        
+        // Draw to the end point of this road
+        ctx.lineTo(road.endX, road.endY);
+        
+        // Mark congestion points with special indicators
+        if (road.density === "HIGH" || road.density === "CONGESTED") {
+          const midX = road.startX + (road.endX - road.startX) * 0.5;
+          const midY = road.startY + (road.endY - road.startY) * 0.5;
+          drawCongestionIndicator(ctx, midX, midY, road.density);
+        }
+      }
+      
+      ctx.stroke();
+      
+      // Visualize traffic flow along the path
+      visualizeTrafficFlow(ctx, path);
+      
+      // Add arrow heads to show direction - add more arrows for visibility
+      const numArrows = Math.min(5, Math.ceil(path.roadPath.length / 3));
+      const arrowInterval = Math.max(1, Math.floor(path.roadPath.length / numArrows));
+      
+      for (let i = 0; i < path.roadPath.length; i += arrowInterval) {
+        const road = path.roadPath[i];
+        if (!road) continue;
+        
+        // Find the midpoint to place the arrow
+        let midX, midY, angle;
+        
+        if (road.points && road.points.length > 0) {
+          // For curved roads, use the middle point
+          const midPointIndex = Math.floor(road.points.length / 2);
+          const midPoint = road.points[midPointIndex];
+          const nextPointIndex = Math.min(midPointIndex + 1, road.points.length - 1);
+          const nextPoint = road.points[nextPointIndex];
+          
+          if (!midPoint || !nextPoint) continue;
+          
+          midX = midPoint.x;
+          midY = midPoint.y;
+          angle = Math.atan2(nextPoint.y - midPoint.y, nextPoint.x - midPoint.x);
+        } else {
+          // For straight roads, use midpoint of the line
+          const dx = road.endX - road.startX;
+          const dy = road.endY - road.startY;
+          angle = Math.atan2(dy, dx);
+          
+          midX = road.startX + dx * 0.6;
+          midY = road.startY + dy * 0.6;
+        }
+        
+        // Draw arrow
+        drawArrow(ctx, midX, midY, angle, color);
+      }
+      
+      ctx.restore();
+    } catch (error) {
+      console.error("Error drawing optimal path:", error);
+    }
+  };
+  
+  // Create a gradient that visualizes congestion levels along the path
+  const createCongestionGradient = (
+    ctx: CanvasRenderingContext2D,
+    path: OptimalPath
+  ): CanvasGradient | null => {
+    if (path.roadPath.length === 0) return null;
+    
+    // Get start and end points for gradient
+    const firstRoad = path.roadPath[0];
+    const lastRoad = path.roadPath[path.roadPath.length - 1];
+    
+    const gradient = ctx.createLinearGradient(
+      firstRoad.startX, firstRoad.startY, 
+      lastRoad.endX, lastRoad.endY
+    );
+    
+    // Define gradient colors based on congestion patterns
+    gradient.addColorStop(0, '#3498db'); // Start with blue for normal flow
+    
+    // Add intermediate color stops based on congestion
+    let totalLength = 0;
+    const pathTotalLength = path.totalWeight;
+    
+    // Calculate cumulative distance for each road segment
+    path.roadPath.forEach((road, index) => {
+      if (road.density === "HIGH" || road.density === "CONGESTED") {
+        // Calculate position in the path (0-1)
+        const segmentLength = Math.sqrt(
+          Math.pow(road.endX - road.startX, 2) + 
+          Math.pow(road.endY - road.startY, 2)
+        );
+        
+        totalLength += segmentLength;
+        const position = totalLength / pathTotalLength;
+        
+        if (road.density === "HIGH") {
+          gradient.addColorStop(Math.max(0, position - 0.05), '#f39c12'); // Yellow before high density
+          gradient.addColorStop(Math.min(1, position + 0.05), '#3498db'); // Back to blue after
+        } else if (road.density === "CONGESTED") {
+          gradient.addColorStop(Math.max(0, position - 0.05), '#e74c3c'); // Red before congestion
+          gradient.addColorStop(Math.min(1, position + 0.05), '#3498db'); // Back to blue after
+        }
+      }
+    });
+    
+    gradient.addColorStop(1, '#2ecc71'); // End with green at destination
+    
+    return gradient;
+  };
+  
+  // Draw a congestion indicator at the specified location
+  const drawCongestionIndicator = (
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    density: string
+  ) => {
+    const radius = density === "CONGESTED" ? 12 : 8;
+    const color = density === "CONGESTED" ? '#e74c3c' : '#f39c12';
     
     ctx.save();
-    ctx.lineWidth = lineWidth;
-    ctx.strokeStyle = color;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.7;
     
-    // Draw an outline around the path for better visibility
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 5;
-    
+    // Draw warning indicator
+    ctx.fillStyle = color;
     ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
     
-    // Start with the first point
-    const firstRoad = path.roadPath[0];
-    ctx.moveTo(firstRoad.startX, firstRoad.startY);
-    
-    // For each road segment in the path
-    for (let i = 0; i < path.roadPath.length; i++) {
-      const road = path.roadPath[i];
-      
-      // If the road has intermediate points, draw through those
-      if (road.points && road.points.length > 0) {
-        road.points.forEach(point => {
-          ctx.lineTo(point.x, point.y);
-        });
-      }
-      
-      // Draw to the end point of this road
-      ctx.lineTo(road.endX, road.endY);
-    }
-    
-    ctx.stroke();
-    
-    // Add arrow heads to show direction
-    for (let i = 0; i < path.roadPath.length; i += Math.max(1, Math.floor(path.roadPath.length / 5))) {
-      const road = path.roadPath[i];
-      
-      // Find the midpoint to place the arrow
-      let midX, midY, angle;
-      
-      if (road.points && road.points.length > 0) {
-        // For curved roads, use the middle point
-        const midPointIndex = Math.floor(road.points.length / 2);
-        const midPoint = road.points[midPointIndex];
-        const nextPointIndex = Math.min(midPointIndex + 1, road.points.length - 1);
-        const nextPoint = road.points[nextPointIndex];
-        
-        midX = midPoint.x;
-        midY = midPoint.y;
-        angle = Math.atan2(nextPoint.y - midPoint.y, nextPoint.x - midPoint.x);
-      } else {
-        // For straight roads, use midpoint of the line
-        const dx = road.endX - road.startX;
-        const dy = road.endY - road.startY;
-        angle = Math.atan2(dy, dx);
-        
-        midX = road.startX + dx * 0.6;
-        midY = road.startY + dy * 0.6;
-      }
-      
-      // Draw arrow
-      drawArrow(ctx, midX, midY, angle, color);
-    }
+    // Draw exclamation mark
+    ctx.fillStyle = 'white';
+    ctx.font = `${radius}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('!', x, y);
     
     ctx.restore();
   };
   
+  // Visualize traffic flow along the path with animated dots
+  const visualizeTrafficFlow = (
+    ctx: CanvasRenderingContext2D,
+    path: OptimalPath
+  ) => {
+    if (!path.coordinatePath || path.coordinatePath.length < 2) {
+      return;
+    }
+    
+    try {
+      ctx.save();
+      
+      // Number of flow indicators (vehicles)
+      const numIndicators = Math.min(20, path.coordinatePath.length);
+      
+      // Current time for animation
+      const time = Date.now() / 1000;
+      
+      for (let i = 0; i < numIndicators; i++) {
+        // Calculate position in the path (0-1)
+        const position = (time * simulationSpeed * 0.2 + i / numIndicators) % 1;
+        
+        // Get interpolated point in the path
+        const pointIndex = Math.floor(position * (path.coordinatePath.length - 1));
+        const nextPointIndex = Math.min(pointIndex + 1, path.coordinatePath.length - 1);
+        
+        // Check if the points exist and are valid
+        const currentPoint = path.coordinatePath[pointIndex];
+        const nextPoint = path.coordinatePath[nextPointIndex];
+        
+        if (!currentPoint || !nextPoint || 
+            currentPoint.x === undefined || currentPoint.y === undefined || 
+            nextPoint.x === undefined || nextPoint.y === undefined) {
+          continue;
+        }
+        
+        const subPosition = position * (path.coordinatePath.length - 1) - pointIndex;
+        
+        const x = currentPoint.x + (nextPoint.x - currentPoint.x) * subPosition;
+        const y = currentPoint.y + (nextPoint.y - currentPoint.y) * subPosition;
+        
+        // Skip if NaN
+        if (isNaN(x) || isNaN(y)) {
+          continue;
+        }
+        
+        // Draw a dot representing a vehicle
+        const size = 4;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      ctx.restore();
+    } catch (error) {
+      console.error("Error visualizing traffic flow:", error);
+    }
+  };
+
   // Draw an arrow for path direction
   const drawArrow = (
     ctx: CanvasRenderingContext2D,
@@ -974,6 +1338,63 @@ const ViewMapPage: React.FC = () => {
     ctx.stroke();
     
     ctx.restore();
+  };
+
+  // Count congestion points along a path
+  const countCongestionPoints = (path: OptimalPath): number => {
+    if (!path.roadPath) return 0;
+    
+    return path.roadPath.filter(road => 
+      road.density === "HIGH" || road.density === "CONGESTED"
+    ).length;
+  };
+  
+  // Count potential intersections along a path
+  const countIntersections = (path: OptimalPath): number => {
+    if (!path.roadPath || path.roadPath.length <= 1) return 0;
+    
+    // Simple approximation: count changes in direction as potential intersections
+    let intersections = 0;
+    let lastDirection = "";
+    
+    for (let i = 1; i < path.roadPath.length; i++) {
+      const prevRoad = path.roadPath[i-1];
+      const road = path.roadPath[i];
+      
+      // Calculate angle of the current road segment
+      const angle = Math.atan2(
+        road.endY - road.startY,
+        road.endX - road.startX
+      ) * 180 / Math.PI;
+      
+      // Discretize angle into 8 possible directions
+      const direction = getDiscreteDirection(angle);
+      
+      // If the direction changed, count it as a potential intersection
+      if (lastDirection && direction !== lastDirection) {
+        intersections++;
+      }
+      
+      lastDirection = direction;
+    }
+    
+    return intersections;
+  };
+  
+  // Convert an angle to a discrete direction
+  const getDiscreteDirection = (angle: number): string => {
+    // Normalize angle to 0-360
+    const normalizedAngle = (angle + 360) % 360;
+    
+    // Split into 8 directions (N, NE, E, SE, S, SW, W, NW)
+    if (normalizedAngle >= 337.5 || normalizedAngle < 22.5) return "E";
+    if (normalizedAngle >= 22.5 && normalizedAngle < 67.5) return "SE";
+    if (normalizedAngle >= 67.5 && normalizedAngle < 112.5) return "S";
+    if (normalizedAngle >= 112.5 && normalizedAngle < 157.5) return "SW";
+    if (normalizedAngle >= 157.5 && normalizedAngle < 202.5) return "W";
+    if (normalizedAngle >= 202.5 && normalizedAngle < 247.5) return "NW";
+    if (normalizedAngle >= 247.5 && normalizedAngle < 292.5) return "N";
+    return "NE";
   };
 
   return (
@@ -1092,76 +1513,98 @@ const ViewMapPage: React.FC = () => {
                   </button>
                 </div>
                 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Conditions
-                  </label>
-                  <div className="grid grid-cols-1 gap-3">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">
-                        Time of Day
-                      </label>
-                      <select
-                        name="timeOfDay"
-                        value={simulationParams.timeOfDay}
-                        onChange={handleSimulationParamChange}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="MORNING">Morning</option>
-                        <option value="AFTERNOON">Afternoon</option>
-                        <option value="EVENING">Evening</option>
-                        <option value="NIGHT">Night</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">
-                        Day Type
-                      </label>
-                      <select
-                        name="dayType"
-                        value={simulationParams.dayType}
-                        onChange={handleSimulationParamChange}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="WEEKDAY">Weekday</option>
-                        <option value="WEEKEND">Weekend</option>
-                        <option value="HOLIDAY">Holiday</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">
-                        Weather
-                      </label>
-                      <select
-                        name="weatherCondition"
-                        value={simulationParams.weatherCondition}
-                        onChange={handleSimulationParamChange}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="CLEAR">Clear</option>
-                        <option value="RAIN">Rain</option>
-                        <option value="SNOW">Snow</option>
-                        <option value="FOG">Fog</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">
-                        Routing Strategy
-                      </label>
-                      <select
-                        name="routingStrategy"
-                        value={simulationParams.routingStrategy}
-                        onChange={handleSimulationParamChange}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="SHORTEST_PATH">Shortest Path</option>
-                        <option value="BALANCED">Balanced</option>
-                        <option value="AVOID_CONGESTION">Avoid Congestion</option>
-                      </select>
-                    </div>
+                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+                  <h2 className="text-lg font-bold mb-4">Simulation Parameters</h2>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Time of Day
+                    </label>
+                    <select
+                      value={simulationParams.timeOfDay}
+                      onChange={handleSimulationParamChange}
+                      name="timeOfDay"
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="MORNING">Morning (Rush Hour)</option>
+                      <option value="AFTERNOON">Afternoon</option>
+                      <option value="EVENING">Evening (Rush Hour)</option>
+                      <option value="NIGHT">Night</option>
+                    </select>
+                    {simulationParams.timeOfDay === "MORNING" || simulationParams.timeOfDay === "EVENING" ? (
+                      <p className="mt-1 text-xs text-amber-600">
+                        ⚠️ Rush hour: Higher likelihood of traffic snakes and phantom intersections
+                      </p>
+                    ) : null}
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Day Type
+                    </label>
+                    <select
+                      value={simulationParams.dayType}
+                      onChange={handleSimulationParamChange}
+                      name="dayType"
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="WEEKDAY">Weekday</option>
+                      <option value="WEEKEND">Weekend</option>
+                      <option value="HOLIDAY">Holiday</option>
+                    </select>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Weather Condition
+                    </label>
+                    <select
+                      value={simulationParams.weatherCondition}
+                      onChange={handleSimulationParamChange}
+                      name="weatherCondition"
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="CLEAR">Clear</option>
+                      <option value="RAIN">Rain (Slows Traffic)</option>
+                      <option value="SNOW">Snow (Heavy Slowdown)</option>
+                      <option value="FOG">Fog (Reduced Visibility)</option>
+                    </select>
+                    {simulationParams.weatherCondition !== "CLEAR" ? (
+                      <p className="mt-1 text-xs text-amber-600">
+                        ⚠️ Bad weather increases driver reaction times and traffic snake formation
+                      </p>
+                    ) : null}
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Routing Strategy
+                    </label>
+                    <select
+                      value={simulationParams.routingStrategy}
+                      onChange={handleSimulationParamChange}
+                      name="routingStrategy"
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="SHORTEST_PATH">Shortest Path (Distance Only)</option>
+                      <option value="BALANCED">Balanced (Distance + Traffic)</option>
+                      <option value="AVOID_CONGESTION">Avoid Congestion (Minimize Traffic Snakes)</option>
+                    </select>
+                    {simulationParams.routingStrategy === "AVOID_CONGESTION" ? (
+                      <p className="mt-1 text-xs text-green-600">
+                        ✓ This strategy prioritizes highways and roads with fewer intersections
+                      </p>
+                    ) : null}
+                  </div>
+                  
+                  <div className="p-3 bg-blue-50 rounded-md text-sm text-gray-700 mb-3">
+                    <p className="font-medium text-gray-800 mb-1">About Traffic Flow</p>
+                    <p className="text-xs">
+                      As explained in "The Simple Solution to Traffic", congestion often forms when vehicles need to slow down and accelerate at different rates, creating "traffic snakes" that propagate backward.
+                    </p>
+                    <p className="text-xs mt-1">
+                      Routes with fewer intersections and less congestion can significantly reduce travel time, even if they're slightly longer in distance.
+                    </p>
                   </div>
                 </div>
                 
@@ -1198,9 +1641,13 @@ const ViewMapPage: React.FC = () => {
                 {optimalPath && !showPathComparison && (
                   <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
                     <h3 className="font-medium text-gray-800 mb-2">
-                      Route Using {optimalPath.algorithm === 'dijkstra' ? 'Dijkstra' : 'A*'} Algorithm
+                      Optimal Route
                     </h3>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
+                    
+                    <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                      <div className="text-gray-600">Algorithm:</div>
+                      <div className="font-medium text-right">{optimalPath.algorithm === 'dijkstra' ? 'Dijkstra' : 'A*'}</div>
+                      
                       <div className="text-gray-600">Est. Travel Time:</div>
                       <div className="font-medium text-right">{formatTime(optimalPath.estimatedTimeMinutes)}</div>
                       
@@ -1209,7 +1656,49 @@ const ViewMapPage: React.FC = () => {
                       
                       <div className="text-gray-600">Road Segments:</div>
                       <div className="font-medium text-right">{optimalPath.roadPath.length}</div>
+                      
+                      <div className="text-gray-600">Congestion Points:</div>
+                      <div className="font-medium text-right">{countCongestionPoints(optimalPath)}</div>
+                      
+                      <div className="text-gray-600">Intersections:</div>
+                      <div className="font-medium text-right">{countIntersections(optimalPath)}</div>
                     </div>
+                    
+                    <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-gray-700">
+                      <p className="italic">{optimalPath.description}</p>
+                    </div>
+                    
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="flex-1 border-t border-gray-200"></div>
+                      <span className="text-xs text-gray-500">Path Legend</span>
+                      <div className="flex-1 border-t border-gray-200"></div>
+                    </div>
+                    
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 rounded-full bg-blue-500 mr-1"></div>
+                        <span>Normal Flow</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500 mr-1"></div>
+                        <span>High Density</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 rounded-full bg-red-500 mr-1"></div>
+                        <span>Congested</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
+                        <span>Destination</span>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => setShowPathComparison(true)}
+                      className="w-full mt-3 py-1 text-xs text-blue-600 hover:text-blue-800 focus:outline-none"
+                    >
+                      Show Algorithm Comparison
+                    </button>
                   </div>
                 )}
                 
@@ -1226,7 +1715,7 @@ const ViewMapPage: React.FC = () => {
                     <div className="mb-1">
                       <div className="text-xs text-gray-600 mb-1">Est. Travel Time:</div>
                       <div className="flex">
-                        <div className="w-1/3 text-xs">Difference:</div>
+                        <div className="w-1/3 text-xs">Comparison:</div>
                         <div className="w-1/3 text-center font-medium">
                           {pathComparison.dijkstra ? formatTime(pathComparison.dijkstra.estimatedTimeMinutes) : '-'}
                         </div>
@@ -1250,28 +1739,69 @@ const ViewMapPage: React.FC = () => {
                     </div>
                     
                     <div className="mb-1">
-                      <div className="text-xs text-gray-600 mb-1">Road Segments:</div>
+                      <div className="text-xs text-gray-600 mb-1">Congestion Points:</div>
                       <div className="flex">
                         <div className="w-1/3 text-xs">Count:</div>
                         <div className="w-1/3 text-center font-medium">
-                          {pathComparison.dijkstra ? pathComparison.dijkstra.roadPath.length : '-'}
+                          {pathComparison.dijkstra ? countCongestionPoints(pathComparison.dijkstra) : '-'}
                         </div>
                         <div className="w-1/3 text-center font-medium">
-                          {pathComparison.astar ? pathComparison.astar.roadPath.length : '-'}
+                          {pathComparison.astar ? countCongestionPoints(pathComparison.astar) : '-'}
                         </div>
                       </div>
                     </div>
                     
-                    <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600">
-                      <div className="flex items-center mb-1">
-                        <span className="w-3 h-3 inline-block bg-orange-500 mr-1 rounded-full"></span>
-                        <span>Dijkstra's Algorithm (orange path)</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="w-3 h-3 inline-block bg-green-500 mr-1 rounded-full"></span>
-                        <span>A* Algorithm (green path)</span>
+                    <div className="mb-1">
+                      <div className="text-xs text-gray-600 mb-1">Intersections:</div>
+                      <div className="flex">
+                        <div className="w-1/3 text-xs">Count:</div>
+                        <div className="w-1/3 text-center font-medium">
+                          {pathComparison.dijkstra ? countIntersections(pathComparison.dijkstra) : '-'}
+                        </div>
+                        <div className="w-1/3 text-center font-medium">
+                          {pathComparison.astar ? countIntersections(pathComparison.astar) : '-'}
+                        </div>
                       </div>
                     </div>
+                    
+                    {pathComparison.trafficFlowWinner && (
+                      <div className="mt-2 p-2 bg-indigo-50 border border-indigo-100 rounded-md">
+                        <p className="text-xs text-gray-800">
+                          <span className="font-medium">Traffic Flow Analysis:</span>{' '}
+                          Based on "The Simple Solution to Traffic" concepts, the{' '}
+                          <span className={`font-bold ${pathComparison.trafficFlowWinner === 'dijkstra' ? 'text-orange-600' : 'text-green-600'}`}>
+                            {pathComparison.trafficFlowWinner === 'dijkstra' ? 'Dijkstra' : 'A*'}
+                          </span>{' '}
+                          algorithm provides a better route for current conditions.
+                          {pathComparison.timeDifference ? (
+                            <span className="block mt-1">
+                              The time difference between routes is approximately {formatTime(pathComparison.timeDifference)}.
+                            </span>
+                          ) : null}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-gray-700">
+                      <p className="mb-1 font-medium">Algorithm Differences:</p>
+                      <p>• <span className="text-orange-600 font-medium">Dijkstra</span> explores all possible routes equally and guarantees the shortest path.</p>
+                      <p>• <span className="text-green-600 font-medium">A*</span> uses a heuristic to prioritize exploring paths that seem to lead toward the destination.</p>
+                      <p className="mt-2">Based on the traffic theory, A* typically finds routes with fewer intersections and traffic snakes, while Dijkstra may find shorter but more congested paths.</p>
+                      <p className="mt-2">The blue path represents the optimal route balancing distance and traffic conditions.</p>
+                    </div>
+                    
+                    <button
+                      onClick={() => {
+                        // Use the winner algorithm to find the optimal path
+                        if (pathComparison.trafficFlowWinner) {
+                          setSelectedAlgorithm(pathComparison.trafficFlowWinner);
+                          findOptimalPath();
+                        }
+                      }}
+                      className="w-full mt-3 py-1.5 px-3 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      Show Optimal Route
+                    </button>
                   </div>
                 )}
               </div>
