@@ -1,6 +1,29 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { adminApi, eventsApi, trafficApi } from "../utils/api";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 interface AdminUser {
   id: number;
@@ -55,6 +78,7 @@ const AdminDashboard = () => {
     "West Gate": { count: 150 },
     "South Gate": { count: 185 }
   });
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   useEffect(() => {
     // Get the user from localStorage
@@ -259,6 +283,79 @@ const AdminDashboard = () => {
 
   const recommendations = generateRecommendations();
 
+  // Prepare data for graphs
+  const dailyTrafficChartData = {
+    labels: filteredTrafficData.map(item => new Date(item.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })),
+    datasets: [
+      {
+        label: 'Daily Vehicles',
+        data: filteredTrafficData.map(item => item.totalVehicles),
+        borderColor: 'rgb(34, 197, 94)',
+        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+        tension: 0.4,
+        fill: true,
+      },
+    ],
+  };
+
+  const entryPointsChartData = {
+    labels: Object.keys(trafficEntryPoints),
+    datasets: [
+      {
+        label: 'Vehicles per hour',
+        data: Object.values(trafficEntryPoints).map(point => point.count),
+        backgroundColor: 'rgba(34, 197, 94, 0.2)',
+        borderColor: 'rgb(34, 197, 94)',
+        borderWidth: 2,
+        borderRadius: 4,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: {
+          color: '#1f2937',
+          font: {
+            size: 12,
+            weight: 'normal' as const,
+          },
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(34, 197, 94, 0.9)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        padding: 12,
+        cornerRadius: 8,
+        displayColors: false,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)',
+        },
+        ticks: {
+          color: '#6b7280',
+        },
+      },
+      x: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          color: '#6b7280',
+        },
+      },
+    },
+  };
+
   if (isLoading && !trafficStats) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -268,20 +365,33 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900">Kachi Dham Traffic Management System</h1>
-          <div className="flex items-center">
-            {user && (
-              <span className="mr-4 text-gray-600">Welcome, {user.name}</span>
-            )}
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-            >
-              Logout
-            </button>
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <button
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="w-10 h-10 rounded-full bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold flex items-center justify-center hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+              >
+                {user?.name.charAt(0).toUpperCase()}
+              </button>
+              {showProfileMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 ring-1 ring-black ring-opacity-5 z-50">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                    <p className="text-xs text-gray-500">{user?.email}</p>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -347,49 +457,50 @@ const AdminDashboard = () => {
         </div>
 
         {/* Current Traffic Status */}
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <div className="bg-white shadow-lg rounded-xl p-6 mb-8">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h2 className="text-xl font-semibold">Current Traffic Status</h2>
-              <p className="text-gray-500 text-sm">Real-time traffic monitoring for Kachi Dham area</p>
+              <h2 className="text-xl font-semibold text-gray-800">Current Traffic Status</h2>
+              <p className="text-sm text-gray-500">Real-time traffic monitoring for Kachi Dham area</p>
             </div>
-            <div className="flex items-center">
-              <span className="mr-2">Live Simulation:</span>
-              {isSimulationRunning ? (
-                <button 
-                  onClick={handleStopSimulation}
-                  className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 flex items-center"
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center">
+                <label htmlFor="traffic-period" className="text-sm text-gray-600 mr-2">Traffic Period:</label>
+                <select
+                  id="traffic-period"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 >
-                  <span className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></span>
-                  Stop
-                </button>
-              ) : (
-                <button 
-                  onClick={handleStartSimulation}
-                  className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-                >
-                  Start
-                </button>
-              )}
+                  {getMonthOptions().map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center">
+                <span className="text-sm text-gray-600 mr-2">Live Simulation:</span>
+                {isSimulationRunning ? (
+                  <button 
+                    onClick={handleStopSimulation}
+                    className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center"
+                  >
+                    <span className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></span>
+                    Stop
+                  </button>
+                ) : (
+                  <button 
+                    onClick={handleStartSimulation}
+                    className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                  >
+                    Start
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-          
-          <div className="mb-4">
-            <div className="flex items-center">
-              <span className="text-gray-700 mr-2">Traffic Period:</span>
-              <select 
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {getMonthOptions().map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-blue-50 p-4 rounded-lg shadow-sm">
               <div className="flex justify-between">
                 <h3 className="font-medium text-blue-800">Total Vehicles</h3>
@@ -433,6 +544,22 @@ const AdminDashboard = () => {
                   (trafficStats?.congestionLevel || "MEDIUM") === "HIGH" ? "bg-orange-500 w-3/4" :
                   "bg-red-500 w-full"
                 }`}></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Traffic Graphs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-lg border border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Daily Traffic Trend</h3>
+              <div className="h-[300px]">
+                <Line data={dailyTrafficChartData} options={chartOptions} />
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-lg border border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Entry Points Traffic</h3>
+              <div className="h-[300px]">
+                <Bar data={entryPointsChartData} options={chartOptions} />
               </div>
             </div>
           </div>

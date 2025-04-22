@@ -1,0 +1,17 @@
+# Rules for Code Modification
+
+1. Do NOT change the core logic of the application.
+   - Logic includes data manipulation, conditional flows, algorithms, or any function that affects business behavior.
+   - Refactoring for readability is allowed only if the behavior/output remains identical.
+
+2. API endpoints must remain the same.
+   - Do not rename, remove, or add API routes.
+   - The request methods (GET, POST, PUT, DELETE, etc.) and expected request/response formats must not be modified.
+
+3. Only non-functional improvements are allowed unless explicitly requested.
+   - Examples: code formatting, adding comments, renaming variables (without changing meaning), UI styling tweaks.
+
+4. Any change outside of these rules must be approved explicitly before proceeding.
+
+# Reminder:
+These rules help maintain the stability and integration of the existing application with backend and frontend systems.
