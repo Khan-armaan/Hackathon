@@ -10,6 +10,7 @@ import AdminDashboard from "./admin/AdminDashboard";
 import AdminLayout from "./admin/AdminLayout";
 import UserDashboard from "./User/UserDashboard";
 import UserLayout from "./User/UserLayout";
+import UserAnalytics from "./User/UserAnalytics";
 import AddMapPage from "./admin/AddMapPage";
 import MapManagementPage from "./admin/MapManagementPage";
 import MapSelectionPage from "./User/MapSelectionPage";
@@ -76,6 +77,7 @@ function App() {
           <Route path="dashboard" element={<UserDashboard />} />
           <Route path="maps" element={<MapSelectionPage />} />
           <Route path="maps/:id" element={<ViewMapPage />} />
+          <Route path="analytics" element={<UserAnalytics />} />
           <Route path="products" element={<div>Products Page</div>} />
           <Route path="cart" element={<div>Shopping Cart</div>} />
           <Route path="orders" element={<div>Order History</div>} />

@@ -131,6 +131,48 @@ export const trafficApi = {
   },
 };
 
+// Traffic Analytics API
+export const trafficAnalyticsApi = {
+  // Get daily traffic data
+  getDailyTraffic: async (days?: number) => {
+    const query = days ? `?days=${days}` : "";
+    return apiCall<any[]>(`/api/traffic-analytics/daily${query}`, "GET");
+  },
+
+  // Get traffic snapshots
+  getTrafficSnapshots: async (limit?: number, date?: string) => {
+    let query = "";
+    if (date || limit) {
+      const params = [];
+      if (date) params.push(`date=${date}`);
+      if (limit) params.push(`limit=${limit}`);
+      query = `?${params.join("&")}`;
+    }
+    return apiCall<any[]>(`/api/traffic-analytics/snapshots${query}`, "GET");
+  },
+
+  // Create a new traffic snapshot
+  createTrafficSnapshot: async (snapshotData: {
+    time?: string;
+    totalVehicles: number;
+    congestionLevel: number;
+    avgSpeed: number;
+    entryPoints?: Record<string, { count: number }>;
+  }) => {
+    return apiCall<any>("/api/traffic-analytics/snapshots", "POST", snapshotData, true);
+  },
+
+  // Create or update daily traffic data
+  updateDailyTraffic: async (dailyData: {
+    date: string;
+    totalVehicles: number;
+    peakCongestion: number;
+    avgWaitTime: number;
+  }) => {
+    return apiCall<any>("/api/traffic-analytics/daily", "POST", dailyData, true);
+  }
+};
+
 // Route Scheduling API
 export const routeApi = {
   // Get all route recommendations
