@@ -6,11 +6,11 @@ const upload = multer();
 export const uploadRouter = express.Router();
 
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
+  region: "ap-south-1",
   credentials: {
-    accessKeyId: process.env.AWS_Access_key_ID!,
-    secretAccessKey: process.env.AWS_Secret_Access_Key!,
-  }
+    accessKeyId: "AKIAQLVQRACKIQ3EJT5G",
+    secretAccessKey: "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",
+  },
 });
 
 /**
@@ -45,14 +45,14 @@ uploadRouter.post("/", upload.single("image"), async (req, res) => {
     const fileName = `${Date.now()}-${file.originalname}`;
 
     const command = new PutObjectCommand({
-      Bucket: process.env.AWS_BUCKET_NAME!,
+      Bucket: "mybytebucket1708",
       Key: fileName,
       Body: file.buffer,
       ContentType: file.mimetype,
     });
 
     await s3Client.send(command);
-    const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+    const fileUrl = `https://mybytebucket1708.s3.ap-south-1.amazonaws.com/${fileName}`;
 
     res.json({
       url: fileUrl,
@@ -62,4 +62,4 @@ uploadRouter.post("/", upload.single("image"), async (req, res) => {
     console.error("Upload error:", error);
     res.status(500).json({ error: "Failed to upload image" });
   }
-}); 
+});

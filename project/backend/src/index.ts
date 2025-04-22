@@ -1,11 +1,14 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
 
 import swaggerUi from "swagger-ui-express";
 import { specs } from "./config/swagger";
 
 import { uploadRouter } from "./routes/upload";
-import prisma from "./lib/prisma";
+import { adminRouter } from "./routes/admin";
+import trafficMapRouter from "./routes/trafficMap";
+
 
 const app = express();
 
@@ -21,10 +24,17 @@ app.use(
 
 app.use(express.json());
 
+
+
 // Basic health check endpoint
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
+
+// API Routes
+app.use("/api/admin", adminRouter);
+app.use("/api/upload", uploadRouter);
+app.use("/api/traffic-map", trafficMapRouter);
 
 // Serve Swagger documentation
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));

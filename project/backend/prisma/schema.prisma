@@ -6,7 +6,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -19,4 +18,43 @@ model Users {
   name     String
   email    String @unique
   password String
+}
+
+model TrafficMap {
+  id          Int           @id @default(autoincrement())
+  name        String
+  description String?
+  imageUrl    String
+  width       Int
+  height      Int
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  trafficData TrafficData[]
+}
+
+model TrafficData {
+  id        Int        @id @default(autoincrement())
+  mapId     Int
+  map       TrafficMap @relation(fields: [mapId], references: [id])
+  startX    Int
+  startY    Int
+  endX      Int
+  endY      Int
+  roadType  RoadType   @default(NORMAL)
+  density   Density    @default(LOW)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+enum RoadType {
+  HIGHWAY
+  NORMAL
+  RESIDENTIAL
+}
+
+enum Density {
+  LOW
+  MEDIUM
+  HIGH
+  CONGESTED
 }
