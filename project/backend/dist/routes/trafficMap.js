@@ -14,23 +14,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.trafficMapRouter = void 0;
 const express_1 = __importDefault(require("express"));
-const prisma_1 = __importDefault(require("../lib/prisma"));
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
 exports.trafficMapRouter = express_1.default.Router();
-// Middleware to verify JWT token
-const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers["authorization"];
-    const token = authHeader && authHeader.split(" ")[1];
-    if (!token)
-        return res.status(401).json({ error: "Access denied" });
-    jsonwebtoken_1.default.verify(token, JWT_SECRET, (err, user) => {
-        if (err)
-            return res.status(403).json({ error: "Invalid token" });
-        req.user = user;
-        next();
-    });
-};
 /**
  * @swagger
  * components:
@@ -96,6 +82,16 @@ const authenticateToken = (req, res, next) => {
  *         endY:
  *           type: integer
  *           description: Ending Y coordinate of the road
+ *         points:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               x:
+ *                 type: integer
+ *               y:
+ *                 type: integer
+ *           description: Array of points for curved paths. If provided, the road will follow these points.
  *         roadType:
  *           type: string
  *           enum: [HIGHWAY, NORMAL, RESIDENTIAL]
@@ -111,8 +107,6 @@ const authenticateToken = (req, res, next) => {
  *   post:
  *     summary: Create a new traffic map
  *     tags: [TrafficMap]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -124,18 +118,16 @@ const authenticateToken = (req, res, next) => {
  *         description: Map created successfully
  *       400:
  *         description: Invalid input
- *       401:
- *         description: Unauthorized
  *       500:
  *         description: Server error
  */
-exports.trafficMapRouter.post("/", authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.trafficMapRouter.post("/", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { name, description, imageUrl, width, height } = req.body;
         if (!name || !imageUrl || !width || !height) {
             return res.status(400).json({ error: "Missing required fields" });
         }
-        const newMap = yield prisma_1.default.trafficMap.create({
+        const newMap = yield prisma.trafficMap.create({
             data: {
                 name,
                 description,
@@ -174,7 +166,7 @@ exports.trafficMapRouter.post("/", authenticateToken, (req, res) => __awaiter(vo
  */
 exports.trafficMapRouter.get("/", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const maps = yield prisma_1.default.trafficMap.findMany({
+        const maps = yield prisma.trafficMap.findMany({
             orderBy: {
                 createdAt: "desc",
             },
@@ -214,7 +206,7 @@ exports.trafficMapRouter.get("/", (req, res) => __awaiter(void 0, void 0, void 0
 exports.trafficMapRouter.get("/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
-        const map = yield prisma_1.default.trafficMap.findUnique({
+        const map = yield prisma.trafficMap.findUnique({
             where: {
                 id: parseInt(id),
             },
@@ -238,8 +230,6 @@ exports.trafficMapRouter.get("/:id", (req, res) => __awaiter(void 0, void 0, voi
  *   put:
  *     summary: Update a traffic map
  *     tags: [TrafficMap]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -258,21 +248,19 @@ exports.trafficMapRouter.get("/:id", (req, res) => __awaiter(void 0, void 0, voi
  *         description: Map updated successfully
  *       400:
  *         description: Invalid input
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Map not found
  *       500:
  *         description: Server error
  */
-exports.trafficMapRouter.put("/:id", authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.trafficMapRouter.put("/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
         const { name, description, imageUrl, width, height } = req.body;
         if (!name || !imageUrl || !width || !height) {
             return res.status(400).json({ error: "Missing required fields" });
         }
-        const updatedMap = yield prisma_1.default.trafficMap.update({
+        const updatedMap = yield prisma.trafficMap.update({
             where: {
                 id: parseInt(id),
             },
@@ -300,8 +288,6 @@ exports.trafficMapRouter.put("/:id", authenticateToken, (req, res) => __awaiter(
  *   delete:
  *     summary: Delete a traffic map
  *     tags: [TrafficMap]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -312,24 +298,22 @@ exports.trafficMapRouter.put("/:id", authenticateToken, (req, res) => __awaiter(
  *     responses:
  *       200:
  *         description: Map deleted successfully
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Map not found
  *       500:
  *         description: Server error
  */
-exports.trafficMapRouter.delete("/:id", authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.trafficMapRouter.delete("/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
         // First delete associated traffic data
-        yield prisma_1.default.trafficData.deleteMany({
+        yield prisma.trafficData.deleteMany({
             where: {
                 mapId: parseInt(id),
             },
         });
         // Then delete the map
-        yield prisma_1.default.trafficMap.delete({
+        yield prisma.trafficMap.delete({
             where: {
                 id: parseInt(id),
             },
@@ -349,8 +333,6 @@ exports.trafficMapRouter.delete("/:id", authenticateToken, (req, res) => __await
  *   post:
  *     summary: Add traffic data to a map
  *     tags: [TrafficData]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: mapId
@@ -369,19 +351,17 @@ exports.trafficMapRouter.delete("/:id", authenticateToken, (req, res) => __await
  *         description: Traffic data added successfully
  *       400:
  *         description: Invalid input
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Map not found
  *       500:
  *         description: Server error
  */
-exports.trafficMapRouter.post("/:mapId/traffic-data", authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.trafficMapRouter.post("/:mapId/traffic-data", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { mapId } = req.params;
-        const { startX, startY, endX, endY, roadType, density } = req.body;
+        const { startX, startY, endX, endY, roadType, density, points } = req.body;
         // Check if map exists
-        const map = yield prisma_1.default.trafficMap.findUnique({
+        const map = yield prisma.trafficMap.findUnique({
             where: {
                 id: parseInt(mapId),
             },
@@ -392,13 +372,24 @@ exports.trafficMapRouter.post("/:mapId/traffic-data", authenticateToken, (req, r
         if (!startX || !startY || !endX || !endY) {
             return res.status(400).json({ error: "Missing required coordinates" });
         }
-        const newTrafficData = yield prisma_1.default.trafficData.create({
+        // Validate points array if provided
+        if (points && (!Array.isArray(points) || !points.every(point => typeof point === 'object' &&
+            'x' in point &&
+            'y' in point &&
+            typeof point.x === 'number' &&
+            typeof point.y === 'number'))) {
+            return res.status(400).json({
+                error: "Invalid points data format. Expected array of {x: number, y: number}"
+            });
+        }
+        const newTrafficData = yield prisma.trafficData.create({
             data: {
                 mapId: parseInt(mapId),
                 startX,
                 startY,
                 endX,
                 endY,
+                points, // Will be stored as JSON
                 roadType: roadType || "NORMAL",
                 density: density || "LOW",
             },
@@ -419,8 +410,6 @@ exports.trafficMapRouter.post("/:mapId/traffic-data", authenticateToken, (req, r
  *   put:
  *     summary: Update traffic data
  *     tags: [TrafficData]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: mapId
@@ -445,21 +434,29 @@ exports.trafficMapRouter.post("/:mapId/traffic-data", authenticateToken, (req, r
  *         description: Traffic data updated successfully
  *       400:
  *         description: Invalid input
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Traffic data not found
  *       500:
  *         description: Server error
  */
-exports.trafficMapRouter.put("/:mapId/traffic-data/:dataId", authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.trafficMapRouter.put("/:mapId/traffic-data/:dataId", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { mapId, dataId } = req.params;
-        const { startX, startY, endX, endY, roadType, density } = req.body;
+        const { startX, startY, endX, endY, roadType, density, points } = req.body;
         if (!startX || !startY || !endX || !endY) {
             return res.status(400).json({ error: "Missing required coordinates" });
         }
-        const updatedTrafficData = yield prisma_1.default.trafficData.update({
+        // Validate points array if provided
+        if (points && (!Array.isArray(points) || !points.every(point => typeof point === 'object' &&
+            'x' in point &&
+            'y' in point &&
+            typeof point.x === 'number' &&
+            typeof point.y === 'number'))) {
+            return res.status(400).json({
+                error: "Invalid points data format. Expected array of {x: number, y: number}"
+            });
+        }
+        const updatedTrafficData = yield prisma.trafficData.update({
             where: {
                 id: parseInt(dataId),
                 mapId: parseInt(mapId),
@@ -469,6 +466,7 @@ exports.trafficMapRouter.put("/:mapId/traffic-data/:dataId", authenticateToken, 
                 startY,
                 endX,
                 endY,
+                points, // Will be stored as JSON
                 roadType,
                 density,
             },
@@ -489,8 +487,6 @@ exports.trafficMapRouter.put("/:mapId/traffic-data/:dataId", authenticateToken, 
  *   delete:
  *     summary: Delete traffic data
  *     tags: [TrafficData]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: mapId
@@ -507,17 +503,15 @@ exports.trafficMapRouter.put("/:mapId/traffic-data/:dataId", authenticateToken, 
  *     responses:
  *       200:
  *         description: Traffic data deleted successfully
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Traffic data not found
  *       500:
  *         description: Server error
  */
-exports.trafficMapRouter.delete("/:mapId/traffic-data/:dataId", authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.trafficMapRouter.delete("/:mapId/traffic-data/:dataId", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { mapId, dataId } = req.params;
-        yield prisma_1.default.trafficData.delete({
+        yield prisma.trafficData.delete({
             where: {
                 id: parseInt(dataId),
                 mapId: parseInt(mapId),

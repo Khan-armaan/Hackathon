@@ -3,7 +3,8 @@ import { Link} from "react-router-dom";
 
 import { FiPlus, FiEdit, FiTrash2, FiEye } from "react-icons/fi";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+//const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";  
+const API_URL = import.meta.env.VITE_API_URL || "https://traffic.mybyte.store";
 
 interface MapSummary {
   id: number;

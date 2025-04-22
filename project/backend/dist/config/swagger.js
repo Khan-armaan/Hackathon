@@ -9,9 +9,9 @@ const options = {
     definition: {
         openapi: "3.0.0",
         info: {
-            title: "Hackathon projec",
+            title: " Traffic Management System",
             version: "1.0.0",
-            description: "API documentation for Hackathon project",
+            description: "API documentation for Traffic Management System",
         },
         components: {
             securitySchemes: {

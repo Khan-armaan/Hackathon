@@ -10,6 +10,7 @@ import AdminDashboard from "./admin/AdminDashboard";
 import AdminLayout from "./admin/AdminLayout";
 import UserDashboard from "./User/UserDashboard";
 import UserLayout from "./User/UserLayout";
+import UserAnalytics from "./User/UserAnalytics";
 import AddMapPage from "./admin/AddMapPage";
 import MapManagementPage from "./admin/MapManagementPage";
 import MapSelectionPage from "./User/MapSelectionPage";
@@ -19,11 +20,11 @@ import SimulationPage from "./admin/SimulationPage";
 import RouteSchedulingPage from "./admin/RouteSchedulingPage";
 import TrafficAnalyticsPage from "./admin/TrafficAnalyticsPage";
 
-import { adminApi } from "./utils/api";
+//import { adminApi } from "./utils/api";
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
-  const isAuthenticated = adminApi.isLoggedIn();
+ // const isAuthenticated = adminApi.isLoggedIn();
 
   // if (!isAuthenticated) {
   //   return <Navigate to="/admin/login" replace />;
@@ -76,6 +77,7 @@ function App() {
           <Route path="dashboard" element={<UserDashboard />} />
           <Route path="maps" element={<MapSelectionPage />} />
           <Route path="maps/:id" element={<ViewMapPage />} />
+          <Route path="analytics" element={<UserAnalytics />} />
           <Route path="products" element={<div>Products Page</div>} />
           <Route path="cart" element={<div>Shopping Cart</div>} />
           <Route path="orders" element={<div>Order History</div>} />

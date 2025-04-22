@@ -3,8 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 import { Colors } from "../Colors";
 import {
   FiHome,
-
   FiMap,
+  FiBarChart2,
 } from "react-icons/fi";
 
 export default function UserLayout() {
@@ -13,7 +13,7 @@ export default function UserLayout() {
   const menuItems = [
     { path: "/user/dashboard", label: "Dashboard", icon: <FiHome size={20} /> },
     { path: "/user/maps", label: "Traffic Maps", icon: <FiMap size={20} /> },
-   
+    { path: "/user/analytics", label: "Analytics", icon: <FiBarChart2 size={20} /> },
   ];
 
   return (

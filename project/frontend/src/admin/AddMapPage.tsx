@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 
 
 // Mock API calls (replace with actual API calls)
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+//const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_URL = import.meta.env.VITE_API_URL || "https://traffic.mybyte.store";
 
 interface TrafficData {
   id?: number;
@@ -11,6 +12,7 @@ interface TrafficData {
   startY: number;
   endX: number;
   endY: number;
+  points?: {x: number, y: number}[]; // Array of intermediate points for curved paths
   roadType: "HIGHWAY" | "NORMAL" | "RESIDENTIAL";
   density: "LOW" | "MEDIUM" | "HIGH" | "CONGESTED";
 }
@@ -32,7 +34,7 @@ const AddMapPage: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
-  const [drawing, setDrawing] = useState(false);
+ 
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(
     null
   );
@@ -53,6 +55,10 @@ const AddMapPage: React.FC = () => {
   const [selectedRoad, setSelectedRoad] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [currentPoints, setCurrentPoints] = useState<{x: number, y: number}[]>([]);
+  const [isCreatingPath, setIsCreatingPath] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [panOffset] = useState({ x: 0, y: 0 });
 
   // Fetch map data if editing
   useEffect(() => {
@@ -171,16 +177,51 @@ const AddMapPage: React.FC = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    canvas.width = img.width;
-    canvas.height = img.height;
+    canvas.width = img.width * zoomLevel;
+    canvas.height = img.height * zoomLevel;
 
-    // Draw the image
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    
+    ctx.scale(zoomLevel, zoomLevel);
+    
+    ctx.translate(panOffset.x / zoomLevel, panOffset.y / zoomLevel);
+
     ctx.drawImage(img, 0, 0, img.width, img.height);
 
-    // Draw all roads
     roads.forEach((road, index) => {
       drawRoad(ctx, road, index === selectedRoad);
     });
+    
+    if (isCreatingPath && currentPoints.length > 0) {
+      ctx.lineWidth = getRoadWidth(selectedRoadType);
+      ctx.strokeStyle = getRoadColor(selectedDensity);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      ctx.beginPath();
+      ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
+      
+      for (let i = 1; i < currentPoints.length; i++) {
+        ctx.lineTo(currentPoints[i].x, currentPoints[i].y);
+      }
+      
+      if (startPoint) {
+        ctx.lineTo(startPoint.x, startPoint.y);
+      }
+      
+      ctx.stroke();
+      
+      currentPoints.forEach(point => {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+    
+    ctx.restore();
   };
 
   const drawRoad = (
@@ -188,35 +229,53 @@ const AddMapPage: React.FC = () => {
     road: TrafficData,
     isSelected: boolean = false
   ) => {
-    const { startX, startY, endX, endY, roadType, density } = road;
+    const { startX, startY, endX, endY, roadType, density, points } = road;
 
-    // Set line style based on road type and density
     ctx.lineWidth = getRoadWidth(roadType);
     ctx.strokeStyle = getRoadColor(density);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 
-    // Draw the road
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
-
-    // Add highlight for selected road
     if (isSelected) {
       ctx.save();
       ctx.shadowColor = "#FFFF00";
       ctx.shadowBlur = 10;
     }
 
+    ctx.beginPath();
+    
+    if (points && points.length > 0) {
+      ctx.moveTo(startX, startY);
+      
+      points.forEach(point => {
+        ctx.lineTo(point.x, point.y);
+      });
+      
+      ctx.lineTo(endX, endY);
+    } else {
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+    }
+    
     ctx.stroke();
 
     if (isSelected) {
       ctx.restore();
     }
 
-    // Draw small circles at start and end points
     ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    
     ctx.beginPath();
     ctx.arc(startX, startY, 5, 0, Math.PI * 2);
     ctx.fill();
+
+    if (points) {
+      points.forEach(point => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
 
     ctx.beginPath();
     ctx.arc(endX, endY, 5, 0, Math.PI * 2);
@@ -251,97 +310,6 @@ const AddMapPage: React.FC = () => {
     }
   };
 
-  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!image) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    // Check if clicking on an existing road
-    const clickedRoadIndex = trafficData.findIndex((road) => {
-      return isPointOnLine(
-        { x, y },
-        { x: road.startX, y: road.startY },
-        { x: road.endX, y: road.endY }
-      );
-    });
-
-    if (clickedRoadIndex !== -1) {
-      setSelectedRoad(clickedRoadIndex);
-      return;
-    }
-
-    // Start drawing a new road
-    setSelectedRoad(null);
-    setDrawing(true);
-    setStartPoint({ x, y });
-  };
-
-  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!drawing || !startPoint || !image) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    // Redraw canvas with temporary line
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Clear and redraw
-    drawCanvas(image, trafficData);
-
-    // Draw the line being created
-    ctx.lineWidth = getRoadWidth(selectedRoadType);
-    ctx.strokeStyle = getRoadColor(selectedDensity);
-    ctx.beginPath();
-    ctx.moveTo(startPoint.x, startPoint.y);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
-
-  const handleCanvasMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!drawing || !startPoint || !image) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    // Only add if the line has some length
-    const distance = Math.sqrt(
-      Math.pow(x - startPoint.x, 2) + Math.pow(y - startPoint.y, 2)
-    );
-    if (distance > 10) {
-      // Minimum distance threshold
-      const newRoad: TrafficData = {
-        startX: startPoint.x,
-        startY: startPoint.y,
-        endX: x,
-        endY: y,
-        roadType: selectedRoadType,
-        density: selectedDensity,
-      };
-
-      const updatedTrafficData = [...trafficData, newRoad];
-      setTrafficData(updatedTrafficData);
-      drawCanvas(image, updatedTrafficData);
-    }
-
-    setDrawing(false);
-    setStartPoint(null);
-  };
-
-  // Helper function to check if a point is near a line
   const isPointOnLine = (
     point: { x: number; y: number },
     lineStart: { x: number; y: number },
@@ -349,7 +317,6 @@ const AddMapPage: React.FC = () => {
   ): boolean => {
     const distanceThreshold = 10; // Pixels
 
-    // Calculate the distance from point to line
     const A = point.x - lineStart.x;
     const B = point.y - lineStart.y;
     const C = lineEnd.x - lineStart.x;
@@ -380,6 +347,97 @@ const AddMapPage: React.FC = () => {
     return Math.sqrt(dx * dx + dy * dy) < distanceThreshold;
   };
 
+  const isPointOnRoad = (point: { x: number; y: number }, road: TrafficData): boolean => {
+    const allPoints = [
+      { x: road.startX, y: road.startY },
+      ...(road.points || []),
+      { x: road.endX, y: road.endY }
+    ];
+    
+    for (let i = 0; i < allPoints.length - 1; i++) {
+      if (isPointOnLine(point, allPoints[i], allPoints[i + 1])) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!image) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    e.preventDefault(); // Prevent default context menu on right-click
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / zoomLevel - panOffset.x / zoomLevel;
+    const y = (e.clientY - rect.top) / zoomLevel - panOffset.y / zoomLevel;
+
+    if (e.button === 2) {
+      if (isCreatingPath && currentPoints.length > 0) {
+        completePath({ x, y });
+      }
+      return;
+    }
+
+    const clickedRoadIndex = trafficData.findIndex((road) => {
+      return isPointOnRoad({ x, y }, road);
+    });
+
+    if (clickedRoadIndex !== -1) {
+      setSelectedRoad(clickedRoadIndex);
+      setIsCreatingPath(false);
+      setCurrentPoints([]);
+      return;
+    }
+
+    if (isCreatingPath) {
+      setCurrentPoints([...currentPoints, { x, y }]);
+    } else {
+      setSelectedRoad(null);
+      setIsCreatingPath(true);
+      setCurrentPoints([{ x, y }]);
+    }
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isCreatingPath || !image || currentPoints.length === 0) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / zoomLevel - panOffset.x / zoomLevel;
+    const y = (e.clientY - rect.top) / zoomLevel - panOffset.y / zoomLevel;
+
+    setStartPoint({ x, y });
+    
+    drawCanvas(image, trafficData);
+  };
+
+  const handleCanvasMouseUp = (_: React.MouseEvent<HTMLCanvasElement>) => {
+    // We don't complete the path on mouse up anymore
+    
+    // Instead, we'll have a "Complete Path" button
+  };
+  
+  const handleCompletePath = () => {
+    if (!startPoint) return;
+    completePath(startPoint);
+  };
+  
+  const handleCancelPath = () => {
+    if (!image) return;
+    
+    setIsCreatingPath(false);
+    setCurrentPoints([]);
+    setStartPoint(null);
+    
+    drawCanvas(image, trafficData);
+  };
+
   const handleDeleteSelectedRoad = () => {
     if (selectedRoad === null || !image) return;
 
@@ -399,6 +457,7 @@ const AddMapPage: React.FC = () => {
       ...updatedTrafficData[selectedRoad],
       roadType: selectedRoadType,
       density: selectedDensity,
+      points: updatedTrafficData[selectedRoad].points || undefined
     };
 
     setTrafficData(updatedTrafficData);
@@ -422,7 +481,6 @@ const AddMapPage: React.FC = () => {
         return;
       }
 
-      // Create or update the map first
       const mapPayload = {
         name: mapData.name,
         description: mapData.description,
@@ -433,7 +491,6 @@ const AddMapPage: React.FC = () => {
 
       let mapResponse;
       if (isEditing && mapData.id) {
-        // Update existing map
         mapResponse = await fetch(`${API_URL}/api/traffic-map/${mapData.id}`, {
           method: "PUT",
           headers: {
@@ -443,7 +500,6 @@ const AddMapPage: React.FC = () => {
           body: JSON.stringify(mapPayload),
         });
       } else {
-        // Create new map
         mapResponse = await fetch(`${API_URL}/api/traffic-map`, {
           method: "POST",
           headers: {
@@ -461,23 +517,28 @@ const AddMapPage: React.FC = () => {
       const savedMapData = await mapResponse.json();
       const mapId = savedMapData.map.id;
 
-      // If editing, first delete existing traffic data
       if (isEditing) {
         // For simplicity, we'll just add new traffic data
         // In a real application, you would update existing entries
       }
 
-      // Save all traffic data
       for (const road of trafficData) {
         if (!road.id) {
-          // Only save new roads
           await fetch(`${API_URL}/api/traffic-map/${mapId}/traffic-data`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(road),
+            body: JSON.stringify({
+              startX: road.startX,
+              startY: road.startY,
+              endX: road.endX,
+              endY: road.endY,
+              points: road.points || [],
+              roadType: road.roadType,
+              density: road.density,
+            }),
           });
         }
       }
@@ -488,6 +549,51 @@ const AddMapPage: React.FC = () => {
       setError("Error saving map data");
       setIsLoading(false);
     }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    return false;
+  };
+
+  const completePath = (endPoint: { x: number, y: number }) => {
+    if (!isCreatingPath || currentPoints.length < 1 || !image) return;
+    
+    const firstPoint = currentPoints[0];
+    const lastPoint = endPoint;
+    
+    const intermediatePoints = currentPoints.slice(1);
+    
+    const newRoad: TrafficData = {
+      startX: firstPoint.x,
+      startY: firstPoint.y,
+      endX: lastPoint.x,
+      endY: lastPoint.y,
+      points: intermediatePoints,
+      roadType: selectedRoadType,
+      density: selectedDensity,
+    };
+    
+    const updatedTrafficData = [...trafficData, newRoad];
+    setTrafficData(updatedTrafficData);
+    
+    setIsCreatingPath(false);
+    setCurrentPoints([]);
+    setStartPoint(null);
+    
+    drawCanvas(image, updatedTrafficData);
+  };
+
+  const handleZoom = (zoomIn: boolean) => {
+    if (!image) return;
+    
+    const newZoomLevel = zoomIn 
+      ? Math.min(zoomLevel + 0.1, 3)
+      : Math.max(zoomLevel - 0.1, 0.5);
+    
+    setZoomLevel(newZoomLevel);
+    
+    drawCanvas(image, trafficData);
   };
 
   return (
@@ -643,6 +749,24 @@ const AddMapPage: React.FC = () => {
                 </select>
               </div>
 
+              {isCreatingPath && (
+                <>
+                  <button
+                    onClick={handleCompletePath}
+                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                  >
+                    Complete Path
+                  </button>
+
+                  <button
+                    onClick={handleCancelPath}
+                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                  >
+                    Cancel Path
+                  </button>
+                </>
+              )}
+
               {selectedRoad !== null && (
                 <>
                   <button
@@ -669,7 +793,9 @@ const AddMapPage: React.FC = () => {
               <ul className="list-disc pl-5">
                 <li>First, upload a map image of your area</li>
                 <li>Select road type and traffic density before drawing</li>
-                <li>Click and drag on the map to create roads (longer roads work better)</li>
+                <li>Click on the map to start creating a road path</li>
+                <li>Click multiple times to create curved/angled roads</li>
+                <li><strong>Right-click</strong> or click "Complete Path" button to finish the current road</li>
                 <li>Click on existing roads to select them for editing or deletion</li>
                 <li>Use the buttons to update road properties or delete roads</li>
                 <li>Click "Save Map" when you're done to save all changes</li>
@@ -730,20 +856,33 @@ const AddMapPage: React.FC = () => {
                 <p className="text-gray-500">Upload a map image to start</p>
               </div>
             ) : (
-              <canvas
-                ref={canvasRef}
-                onMouseDown={handleCanvasMouseDown}
-                onMouseMove={handleCanvasMouseMove}
-                onMouseUp={handleCanvasMouseUp}
-                onMouseLeave={() => {
-                  if (drawing) {
-                    setDrawing(false);
-                    setStartPoint(null);
-                    if (image) drawCanvas(image, trafficData);
-                  }
-                }}
-                className="cursor-crosshair"
-              />
+              <>
+                <div className="absolute top-2 right-2 z-10 flex flex-col bg-white border rounded shadow-md">
+                  <button
+                    onClick={() => handleZoom(true)}
+                    className="px-2 py-2 text-xl text-gray-700 hover:bg-gray-100 border-b"
+                    title="Zoom In"
+                  >
+                    <span role="img" aria-label="Zoom In">+</span>
+                  </button>
+                  <button
+                    onClick={() => handleZoom(false)}
+                    className="px-2 py-2 text-xl text-gray-700 hover:bg-gray-100"
+                    title="Zoom Out"
+                  >
+                    <span role="img" aria-label="Zoom Out">-</span>
+                  </button>
+                </div>
+                
+                <canvas
+                  ref={canvasRef}
+                  onMouseDown={handleCanvasMouseDown}
+                  onMouseMove={handleCanvasMouseMove}
+                  onMouseUp={handleCanvasMouseUp}
+                  onContextMenu={handleContextMenu}
+                  className="cursor-crosshair"
+                />
+              </>
             )}
           </div>
         </div>
