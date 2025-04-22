@@ -8,7 +8,7 @@ import "./App.css";
 import AdminSignInPage from "./admin/AdminSignInPage";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminLayout from "./admin/AdminLayout";
-import Dashboard from "./admin/Dashboard";
+
 import { adminApi } from "./utils/api";
 
 // Protected route component
