@@ -23,7 +23,7 @@ const options = {
     servers: [
       {
         //url: "http://localhost:3000",
-        url: "https://traffic.mybyte.store",
+        url: "https://apihack.mybyte.store",
         description: "Development server",
       },
     ],
