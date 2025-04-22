@@ -19,11 +19,11 @@ const multer_1 = __importDefault(require("multer"));
 const upload = (0, multer_1.default)();
 exports.uploadRouter = express_1.default.Router();
 const s3Client = new client_s3_1.S3Client({
-    region: process.env.AWS_REGION,
+    region: "ap-south-1",
     credentials: {
-        accessKeyId: process.env.AWS_Access_key_ID,
-        secretAccessKey: process.env.AWS_Secret_Access_Key,
-    }
+        accessKeyId: "AKIAQLVQRACKIQ3EJT5G",
+        secretAccessKey: "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",
+    },
 });
 /**
  * @swagger
@@ -55,13 +55,13 @@ exports.uploadRouter.post("/", upload.single("image"), (req, res) => __awaiter(v
         const file = req.file;
         const fileName = `${Date.now()}-${file.originalname}`;
         const command = new client_s3_1.PutObjectCommand({
-            Bucket: process.env.AWS_BUCKET_NAME,
+            Bucket: "mybytebucket1708",
             Key: fileName,
             Body: file.buffer,
             ContentType: file.mimetype,
         });
         yield s3Client.send(command);
-        const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+        const fileUrl = `https://mybytebucket1708.s3.ap-south-1.amazonaws.com/${fileName}`;
         res.json({
             url: fileUrl,
             message: "Image uploaded successfully",
