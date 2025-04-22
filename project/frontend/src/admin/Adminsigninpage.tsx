@@ -46,6 +46,8 @@ const AdminSignInPage = () => {
         }
       } else {
         // Handle signup
+
+        
         const { data, error } = await adminApi.signup(
           formData.name,
           formData.email,
@@ -70,17 +72,17 @@ const AdminSignInPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-md">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl transform transition-all duration-300 hover:shadow-2xl">
+        <div className="text-center">
+          <h2 className="mt-6 text-4xl font-bold text-gray-900 tracking-tight">
             {isLogin ? "Admin Sign In" : "Create Admin Account"}
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-3 text-center text-sm text-gray-600">
             {isLogin ? "Don't have an account? " : "Already have an account? "}
             <button
               type="button"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
+              className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors duration-200"
               onClick={() => setIsLogin(!isLogin)}
             >
               {isLogin ? "Sign up" : "Sign in"}
@@ -90,7 +92,7 @@ const AdminSignInPage = () => {
 
         {error && (
           <div
-            className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+            className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-sm"
             role="alert"
           >
             <span className="block sm:inline">{error}</span>
@@ -99,10 +101,10 @@ const AdminSignInPage = () => {
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <input type="hidden" name="remember" defaultValue="true" />
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="space-y-4">
             {!isLogin && (
-              <div className="mb-4">
-                <label htmlFor="name" className="sr-only">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                   Full Name
                 </label>
                 <input
@@ -110,16 +112,16 @@ const AdminSignInPage = () => {
                   name="name"
                   type="text"
                   required
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="Full Name"
+                  className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                  placeholder="Enter your full name"
                   value={formData.name}
                   onChange={handleChange}
                 />
               </div>
             )}
 
-            <div className={!isLogin ? "mb-4" : ""}>
-              <label htmlFor="email-address" className="sr-only">
+            <div>
+              <label htmlFor="email-address" className="block text-sm font-medium text-gray-700 mb-1">
                 Email address
               </label>
               <input
@@ -128,17 +130,15 @@ const AdminSignInPage = () => {
                 type="email"
                 autoComplete="email"
                 required
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 ${
-                  isLogin ? "rounded-t-md" : ""
-                } focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm`}
-                placeholder="Email address"
+                className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                placeholder="Enter your email"
                 value={formData.email}
                 onChange={handleChange}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="sr-only">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
               </label>
               <input
@@ -147,8 +147,8 @@ const AdminSignInPage = () => {
                 type="password"
                 autoComplete={isLogin ? "current-password" : "new-password"}
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
+                className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                placeholder="Enter your password"
                 value={formData.password}
                 onChange={handleChange}
               />
@@ -162,11 +162,11 @@ const AdminSignInPage = () => {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded transition-colors duration-200"
                 />
                 <label
                   htmlFor="remember-me"
-                  className="ml-2 block text-sm text-gray-900"
+                  className="ml-2 block text-sm text-gray-700"
                 >
                   Remember me
                 </label>
@@ -175,7 +175,7 @@ const AdminSignInPage = () => {
               <div className="text-sm">
                 <a
                   href="#"
-                  className="font-medium text-indigo-600 hover:text-indigo-500"
+                  className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors duration-200"
                 >
                   Forgot your password?
                 </a>
@@ -187,7 +187,7 @@ const AdminSignInPage = () => {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 transition-all duration-200 transform hover:scale-[1.02]"
             >
               {loading ? (
                 <span className="flex items-center">
