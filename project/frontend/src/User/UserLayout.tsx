@@ -38,7 +38,7 @@ export default function UserLayout() {
                 className="text-xl font-bold"
                 style={{ color: Colors.primaryGreen }}
               >
-                ShopApp
+                TrafficControl
               </span>
             </div>
 
