@@ -104,7 +104,7 @@ const ViewMapPage = (): React.ReactNode => {
   const [isSelectingPoints, setIsSelectingPoints] = useState<boolean>(false);
   const [optimalPath, setOptimalPath] = useState<OptimalPath | null>(null);
   const [isLoadingPath, setIsLoadingPath] = useState<boolean>(false);
-  const [selectedAlgorithm, setSelectedAlgorithm] = useState<string>("astar");
+  const [_, setSelectedAlgorithm] = useState<string>("astar");
   const [showPathComparison, setShowPathComparison] = useState<boolean>(false);
   const [pathComparison, setPathComparison] = useState<PathComparison | null>(
     null
@@ -980,7 +980,7 @@ const ViewMapPage = (): React.ReactNode => {
   };
 
   // Generate a description of the path based on the algorithm and path characteristics
-  const getPathDescription = (path: OptimalPath, algorithm: string): string => {
+  const getPathDescription = (path: OptimalPath, _: string): string => {
     const congestionPoints = countCongestionPoints(path);
     const intersections = countIntersections(path);
     const highwaySegments = path.roadPath.filter(
@@ -1775,7 +1775,7 @@ const ViewMapPage = (): React.ReactNode => {
 
         // Check for vehicles ahead to maintain spacing
         const minSpacing = vehicle.size * 5; // Minimum space between vehicles
-        let shouldSlow = false;
+       // let shouldSlow = false;
 
         roadVehicles.forEach((otherVehicle) => {
           if (otherVehicle.id !== vehicle.id) {
@@ -1790,7 +1790,7 @@ const ViewMapPage = (): React.ReactNode => {
                 otherDx * otherDx + otherDy * otherDy
               );
               if (distanceBetween < minSpacing) {
-                shouldSlow = true;
+               // shouldSlow = true;
                 // The closer the vehicle, the more we slow down
                 speedModifier *= Math.max(0.1, distanceBetween / minSpacing);
               }
@@ -2047,7 +2047,7 @@ const ViewMapPage = (): React.ReactNode => {
   const drawOptimalPath = (
     ctx: CanvasRenderingContext2D,
     path: OptimalPath,
-    color: string,
+    _: string,
     lineWidth: number
   ) => {
     if (!path.roadPath || path.roadPath.length === 0) {

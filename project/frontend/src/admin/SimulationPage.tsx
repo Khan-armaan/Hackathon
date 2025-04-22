@@ -72,7 +72,7 @@ const SimulationPage: React.FC = () => {
   const [isSimulationRunning, setIsSimulationRunning] = useState(false);
   const [simulationSpeed, setSimulationSpeed] = useState(1);
   const [availableMaps, setAvailableMaps] = useState<TrafficMap[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
+  const [_, setEvents] = useState<Event[]>([]);
   const [simulationParams, setSimulationParams] = useState<SimulationParams>({
     trafficMapId: 1,
     trafficMapName: "Kachi Dham Main Area",
@@ -399,9 +399,9 @@ const SimulationPage: React.FC = () => {
     if (!ctx) return;
     
     // Get current map dimensions
-    const selectedMap = availableMaps.find(map => map.id === simulationParams.trafficMapId);
-    const mapWidth = selectedMap?.width || 800;
-    const mapHeight = selectedMap?.height || 500;
+   // const selectedMap = availableMaps.find(map => map.id === simulationParams.trafficMapId);
+    //const mapWidth = selectedMap?.width || 800;
+    //const mapHeight = selectedMap?.height || 500;
     
     // This would be replaced with your actual simulation visualization
     // For now, just a placeholder effect

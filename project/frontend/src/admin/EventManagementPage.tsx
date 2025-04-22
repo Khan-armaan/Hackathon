@@ -100,7 +100,7 @@ const EventManagementPage: React.FC = () => {
   const [trafficDiversions, setTrafficDiversions] = useState<TrafficDiversion[]>([]);
 
   const [trafficStats, setTrafficStats] = useState<any>(null);
-  const [trafficSnapshots, setTrafficSnapshots] = useState<any[]>([]);
+  const [_, setTrafficSnapshots] = useState<any[]>([]);
   const [isCreatingTimeSlot, setIsCreatingTimeSlot] = useState(false);
   const [newTimeSlot, setNewTimeSlot] = useState({
     startTime: new Date().toISOString().slice(0, 16),

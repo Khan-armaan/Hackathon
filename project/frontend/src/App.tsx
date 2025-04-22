@@ -20,11 +20,11 @@ import SimulationPage from "./admin/SimulationPage";
 import RouteSchedulingPage from "./admin/RouteSchedulingPage";
 import TrafficAnalyticsPage from "./admin/TrafficAnalyticsPage";
 
-import { adminApi } from "./utils/api";
+//import { adminApi } from "./utils/api";
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
-  const isAuthenticated = adminApi.isLoggedIn();
+ // const isAuthenticated = adminApi.isLoggedIn();
 
   // if (!isAuthenticated) {
   //   return <Navigate to="/admin/login" replace />;

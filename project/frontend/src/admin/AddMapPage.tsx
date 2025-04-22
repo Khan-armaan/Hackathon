@@ -416,7 +416,7 @@ const AddMapPage: React.FC = () => {
     drawCanvas(image, trafficData);
   };
 
-  const handleCanvasMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleCanvasMouseUp = (_: React.MouseEvent<HTMLCanvasElement>) => {
     // We don't complete the path on mouse up anymore
     
     // Instead, we'll have a "Complete Path" button
