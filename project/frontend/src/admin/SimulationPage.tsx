@@ -65,7 +65,7 @@ interface PathComparison {
 }
 
 //const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
-const API_URL = import.meta.env.VITE_API_URL || "https://traffic.mybyte.store";
+const API_URL = import.meta.env.VITE_API_URL || "https://apihack.mybyte.store";
 
 const SimulationPage: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);

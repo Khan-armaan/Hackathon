@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 
 // Mock API calls (replace with actual API calls)
 //const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
-const API_URL = import.meta.env.VITE_API_URL || "https://traffic.mybyte.store";
+const API_URL = import.meta.env.VITE_API_URL || "https://apihack.mybyte.store";
 
 interface TrafficData {
   id?: number;
@@ -419,7 +419,7 @@ const AddMapPage: React.FC = () => {
 
   const handleCanvasMouseUp = (_: React.MouseEvent<HTMLCanvasElement>) => {
     // We don't complete the path on mouse up anymore
-    
+
     // Instead, we'll have a "Complete Path" button
   };
   
